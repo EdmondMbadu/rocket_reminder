@@ -1,8 +1,61 @@
+import java.util.Base64
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("kotlin-android")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
+}
+
+val localProperties = Properties().apply {
+    val file = rootProject.file("local.properties")
+    if (file.exists()) {
+        file.inputStream().use(::load)
+    }
+}
+
+fun encodeDartDefine(value: String): String =
+    Base64.getEncoder().encodeToString(value.toByteArray(Charsets.UTF_8))
+
+fun decodeDartDefines(value: String): List<String> =
+    value.split(",")
+        .filter { it.isNotBlank() }
+        .map { String(Base64.getDecoder().decode(it), Charsets.UTF_8) }
+
+val rocketGoalsApiKey =
+    localProperties.getProperty("rocket.goals.firebaseApiKey")
+        ?.trim()
+        .orEmpty()
+
+if (rocketGoalsApiKey.isNotEmpty()) {
+    val existingEncodedDartDefines =
+        project.findProperty("dart-defines")
+            ?.toString()
+            .orEmpty()
+    val existingDecodedDartDefines =
+        if (existingEncodedDartDefines.isBlank()) {
+            emptyList()
+        } else {
+            decodeDartDefines(existingEncodedDartDefines)
+        }
+    val hasRocketGoalsApiKey =
+        existingDecodedDartDefines.any {
+            it.startsWith("ROCKET_GOALS_FIREBASE_API_KEY=") ||
+                it.startsWith("ROCKET_GOALS_API_KEY=")
+        }
+
+    if (!hasRocketGoalsApiKey) {
+        val mergedEncodedDartDefines =
+            buildList {
+                if (existingEncodedDartDefines.isNotBlank()) {
+                    addAll(existingEncodedDartDefines.split(",").filter { it.isNotBlank() })
+                }
+                add(encodeDartDefine("ROCKET_GOALS_FIREBASE_API_KEY=$rocketGoalsApiKey"))
+            }.joinToString(",")
+
+        project.extensions.extraProperties["dart-defines"] = mergedEncodedDartDefines
+    }
 }
 
 android {
