@@ -6,7 +6,8 @@ import 'models.dart';
 import 'rocket_goals_bridge_base.dart';
 
 class _FirebaseRestBridge implements RocketGoalsBridge {
-  static const String _apiKey = 'AIzaSyDtmMwYYj14J-snWuZYsAAQDMQYUMmVAc8';
+  static const String _apiKey =
+      String.fromEnvironment('ROCKET_GOALS_FIREBASE_API_KEY');
   static const String _projectId = 'rocket-prompt';
 
   @override
@@ -330,6 +331,12 @@ class _FirebaseRestBridge implements RocketGoalsBridge {
   }
 
   Uri _identityUri(String action) {
+    if (_apiKey.isEmpty) {
+      throw const BridgeException(
+        'Missing Rocket Goals Firebase API key. Start the app with '
+        '--dart-define=ROCKET_GOALS_FIREBASE_API_KEY=... or use Preview mode.',
+      );
+    }
     return Uri.https(
       'identitytoolkit.googleapis.com',
       '/v1/$action',

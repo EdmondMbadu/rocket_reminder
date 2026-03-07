@@ -1,18 +1,15 @@
 # rocket_reminder
 
-A new Flutter project.
+Goal Lock mobile app for Rocket Goals.
 
-## Getting Started
+## Local config
 
-This project is a starting point for a Flutter application.
+Do not commit Firebase keys or other secrets into source.
 
-A few resources to get you started if this is your first Flutter project:
+Run linked-account flows with:
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+```bash
+flutter run --dart-define=ROCKET_GOALS_FIREBASE_API_KEY=your_key_here
+```
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
-# rocket_reminder
+Without that define, the app still works in Preview mode.
