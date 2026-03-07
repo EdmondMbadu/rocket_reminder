@@ -6,9 +6,14 @@ import 'models.dart';
 import 'rocket_goals_bridge_base.dart';
 
 class _FirebaseRestBridge implements RocketGoalsBridge {
-  static const String _apiKey =
+  static const String _firebaseApiKey =
       String.fromEnvironment('ROCKET_GOALS_FIREBASE_API_KEY');
+  static const String _legacyApiKey =
+      String.fromEnvironment('ROCKET_GOALS_API_KEY');
   static const String _projectId = 'rocket-prompt';
+
+  static String get _apiKey =>
+      _firebaseApiKey.isNotEmpty ? _firebaseApiKey : _legacyApiKey;
 
   @override
   Future<void> sendPasswordReset(String email) async {
@@ -334,7 +339,9 @@ class _FirebaseRestBridge implements RocketGoalsBridge {
     if (_apiKey.isEmpty) {
       throw const BridgeException(
         'Missing Rocket Goals Firebase API key. Start the app with '
-        '--dart-define=ROCKET_GOALS_FIREBASE_API_KEY=... or use Preview mode.',
+        '--dart-define=ROCKET_GOALS_FIREBASE_API_KEY=... '
+        '(or legacy --dart-define=ROCKET_GOALS_API_KEY=...) '
+        'or use Preview mode.',
       );
     }
     return Uri.https(
