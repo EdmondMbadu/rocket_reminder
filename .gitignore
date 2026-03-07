@@ -43,3 +43,42 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Flutter local machine state
+.flutter-plugins
+.packages
+android/local.properties
+ios/Flutter/ephemeral/
+ios/Flutter/Generated.xcconfig
+ios/Flutter/flutter_export_environment.sh
+macos/Flutter/ephemeral/
+macos/Flutter/Flutter-Generated.xcconfig
+
+# Environment files and local app config
+.env
+.env.*
+!.env.example
+lib/firebase_options.dart
+
+# Firebase and cloud tooling state
+.firebase/
+firebase-debug.log
+firebase-debug.*.log
+google-services.json
+GoogleService-Info.plist
+
+# Signing keys, certificates, and credentials
+*.jks
+*.keystore
+*.p8
+*.p12
+*.pem
+*.key
+*.cer
+*.mobileprovision
+
+# Service-account style secrets
+service-account*.json
+serviceAccount*.json
+*-service-account.json
+*.secrets.json
