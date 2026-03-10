@@ -1444,30 +1444,12 @@ class _RocketBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        gradient: const LinearGradient(
-          colors: [_brandRed, _brandBlackSoft],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: _brandRed.withValues(alpha: 0.34),
-            blurRadius: 22,
-            offset: const Offset(0, 12),
-          ),
-        ],
-      ),
-      child: SizedBox(
-        width: size,
-        height: size,
-        child: Icon(
-          Icons.rocket_launch_rounded,
-          color: _brandWhite,
-          size: size * 0.52,
-        ),
+    return SizedBox(
+      height: size,
+      child: Image.asset(
+        'assets/branding/rocket-goals-logo.png',
+        fit: BoxFit.contain,
+        filterQuality: FilterQuality.high,
       ),
     );
   }
