@@ -1447,7 +1447,7 @@ class _RocketBadge extends StatelessWidget {
     return SizedBox(
       height: size,
       child: Image.asset(
-        'assets/branding/rocket-goals-logo.png',
+        'assets/branding/rocket-goals-home-icon.png',
         fit: BoxFit.contain,
         filterQuality: FilterQuality.high,
       ),
