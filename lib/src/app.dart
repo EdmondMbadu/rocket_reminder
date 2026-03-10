@@ -234,10 +234,8 @@ class GoalLockRoot extends StatelessWidget {
           children: [
             Positioned.fill(child: _AmbientGlow(dark: dark)),
             SafeArea(
-              child: AnimatedSwitcher(
-                duration: const Duration(milliseconds: 500),
-                switchInCurve: Curves.easeOutCubic,
-                switchOutCurve: Curves.easeInCubic,
+              child: KeyedSubtree(
+                key: ValueKey(phase),
                 child: switch (phase) {
                   LockPhase.loading => const _LoadingView(),
                   LockPhase.auth => _AuthView(controller: controller),
@@ -691,8 +689,8 @@ class _ActiveView extends StatelessWidget {
               const SizedBox(height: 22),
               _TabBar(controller: controller),
               const SizedBox(height: 22),
-              AnimatedSwitcher(
-                duration: const Duration(milliseconds: 300),
+              KeyedSubtree(
+                key: ValueKey(controller.currentTab),
                 child: switch (controller.currentTab) {
                   AppTab.today => _TodayTab(controller: controller),
                   AppTab.history => _HistoryTab(controller: controller),
@@ -707,116 +705,26 @@ class _ActiveView extends StatelessWidget {
   }
 }
 
-class _EditableGoalHeader extends StatefulWidget {
+class _EditableGoalHeader extends StatelessWidget {
   const _EditableGoalHeader({required this.controller});
 
   final GoalLockController controller;
-
-  @override
-  State<_EditableGoalHeader> createState() => _EditableGoalHeaderState();
-}
-
-class _EditableGoalHeaderState extends State<_EditableGoalHeader> {
-  late final TextEditingController _goalController;
-  bool _isEditing = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _goalController = TextEditingController(text: widget.controller.goalLabel);
-  }
-
-  @override
-  void didUpdateWidget(covariant _EditableGoalHeader oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (!_isEditing && _goalController.text != widget.controller.goalLabel) {
-      _goalController.text = widget.controller.goalLabel;
-    }
-  }
-
-  @override
-  void dispose() {
-    _goalController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _saveGoal() async {
-    final trimmedGoal = _goalController.text.trim();
-    if (trimmedGoal.isEmpty) {
-      return;
-    }
-    await widget.controller.updateGoal(trimmedGoal);
-    if (!mounted) {
-      return;
-    }
-    if (widget.controller.goalLabel == trimmedGoal) {
-      setState(() => _isEditing = false);
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
     final dark = _isDark(context);
     final overlay = dark ? Colors.white : Colors.black;
 
-    if (_isEditing) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          TextField(
-            controller: _goalController,
-            autofocus: true,
-            maxLines: 1,
-            textCapitalization: TextCapitalization.sentences,
-            style: Theme.of(context)
-                .textTheme
-                .displayMedium
-                ?.copyWith(fontSize: 34),
-            decoration: const InputDecoration(
-              hintText: 'What goal are you protecting now?',
-            ),
-            onSubmitted: (_) =>
-                widget.controller.isBusy ? null : _saveGoal(),
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              OutlinedButton(
-                onPressed: widget.controller.isBusy
-                    ? null
-                    : () {
-                        _goalController.text = widget.controller.goalLabel;
-                        setState(() => _isEditing = false);
-                      },
-                child: const Text('Cancel'),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: ElevatedButton(
-                  onPressed:
-                      widget.controller.isBusy ? null : _saveGoal,
-                  child: const Text('Save goal'),
-                ),
-              ),
-            ],
-          ),
-        ],
-      );
-    }
-
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onTap: widget.controller.isBusy
+      onTap: controller.isBusy
           ? null
-          : () {
-              _goalController.text = widget.controller.goalLabel;
-              setState(() => _isEditing = true);
-            },
+          : () => controller.selectTab(AppTab.settings),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            widget.controller.goalLabel,
+            controller.goalLabel,
             style: Theme.of(context)
                 .textTheme
                 .displayMedium
@@ -833,7 +741,7 @@ class _EditableGoalHeaderState extends State<_EditableGoalHeader> {
               ),
               const SizedBox(width: 6),
               Text(
-                'Tap title to edit goal',
+                'Tap title to edit in settings',
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: overlay.withValues(alpha: 0.42),
                       fontWeight: FontWeight.w700,
@@ -1020,16 +928,35 @@ class _SettingsTab extends StatefulWidget {
 }
 
 class _SettingsTabState extends State<_SettingsTab> {
+  late final TextEditingController _goalController;
   late int _morningLockMinutes;
   late double _focusWindowHours;
 
   @override
   void initState() {
     super.initState();
+    _goalController = TextEditingController(
+      text: widget.controller.goalPlan?.goal ?? '',
+    );
     _morningLockMinutes =
         widget.controller.goalPlan?.morningLockMinutes ?? 6 * 60 + 30;
     _focusWindowHours =
         (widget.controller.goalPlan?.focusWindowHours ?? 14).toDouble();
+  }
+
+  @override
+  void didUpdateWidget(covariant _SettingsTab oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final latestGoal = widget.controller.goalPlan?.goal ?? '';
+    if (_goalController.text != latestGoal) {
+      _goalController.text = latestGoal;
+    }
+  }
+
+  @override
+  void dispose() {
+    _goalController.dispose();
+    super.dispose();
   }
 
   Future<void> _pickMorningTime() async {
@@ -1061,6 +988,30 @@ class _SettingsTabState extends State<_SettingsTab> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              Text(
+                'Goal',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: _goalController,
+                maxLines: 1,
+                textCapitalization: TextCapitalization.sentences,
+                decoration: const InputDecoration(
+                  hintText: 'What goal are you protecting now?',
+                ),
+                onSubmitted: (_) => widget.controller.isBusy
+                    ? null
+                    : widget.controller.updateGoal(_goalController.text),
+              ),
+              const SizedBox(height: 12),
+              ElevatedButton(
+                onPressed: widget.controller.isBusy
+                    ? null
+                    : () => widget.controller.updateGoal(_goalController.text),
+                child: const Text('Save goal'),
+              ),
+              const SizedBox(height: 24),
               Text(
                 'Schedule',
                 style: Theme.of(context).textTheme.titleLarge,
