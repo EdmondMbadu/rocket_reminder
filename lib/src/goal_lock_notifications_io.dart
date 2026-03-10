@@ -1,3 +1,5 @@
+import 'dart:io' show Platform;
+
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:timezone/data/latest.dart' as tz_data;
@@ -26,6 +28,8 @@ class _FlutterGoalLockNotifications implements GoalLockNotifications {
     if (_initialized) {
       return;
     }
+
+    _registerPlatformImplementation();
 
     tz_data.initializeTimeZones();
     try {
@@ -175,6 +179,20 @@ class _FlutterGoalLockNotifications implements GoalLockNotifications {
       return singleLine;
     }
     return '${singleLine.substring(0, 87)}...';
+  }
+
+  void _registerPlatformImplementation() {
+    if (Platform.isIOS) {
+      IOSFlutterLocalNotificationsPlugin.registerWith();
+      return;
+    }
+    if (Platform.isAndroid) {
+      AndroidFlutterLocalNotificationsPlugin.registerWith();
+      return;
+    }
+    if (Platform.isMacOS) {
+      MacOSFlutterLocalNotificationsPlugin.registerWith();
+    }
   }
 }
 

@@ -162,6 +162,28 @@ void main() {
       DateTime(2026, 3, 7, 20),
     );
   });
+
+  test('updating the goal changes the title and reminder copy', () async {
+    final notifications = _MemoryNotifications();
+    final controller = GoalLockController(
+      cache: _MemoryCache(),
+      bridge: const _FakeBridge(),
+      notifications: notifications,
+      now: () => DateTime(2026, 3, 7, 8),
+    );
+
+    await controller.initialize();
+    await controller.continueInPreview();
+    await controller.armGoalLock(
+      goal: 'Launch my startup',
+      morningLockMinutes: 6 * 60,
+      focusWindowHours: 14,
+    );
+    await controller.updateGoal('Write my book');
+
+    expect(controller.goalLabel, 'Write my book');
+    expect(notifications.morningGoal, 'Write my book');
+  });
 }
 
 class _MemoryCache implements LocalCache {

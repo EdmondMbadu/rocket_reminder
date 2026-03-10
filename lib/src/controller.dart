@@ -391,6 +391,28 @@ class GoalLockController extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> updateGoal(String goal) async {
+    if (_goalPlan == null) {
+      return;
+    }
+
+    final trimmedGoal = goal.trim();
+    if (trimmedGoal.isEmpty) {
+      _errorMessage = 'Keep one clear goal here.';
+      notifyListeners();
+      return;
+    }
+
+    _setBusy(true);
+    _clearMessages();
+    _goalPlan = _goalPlan!.copyWith(goal: trimmedGoal, armed: true);
+    await _syncLatest();
+    await _persist();
+    await _syncNotifications(requestPermissions: true);
+    _noticeMessage ??= 'Goal updated.';
+    _setBusy(false);
+  }
+
   Future<void> signOut() async {
     _ticker?.cancel();
     _remoteCredentials = null;

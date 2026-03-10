@@ -687,13 +687,7 @@ class _ActiveView extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 24),
-              Text(
-                controller.goalLabel,
-                style: Theme.of(context)
-                    .textTheme
-                    .displayMedium
-                    ?.copyWith(fontSize: 36),
-              ),
+              _EditableGoalHeader(controller: controller),
               const SizedBox(height: 22),
               _TabBar(controller: controller),
               const SizedBox(height: 22),
@@ -708,6 +702,147 @@ class _ActiveView extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _EditableGoalHeader extends StatefulWidget {
+  const _EditableGoalHeader({required this.controller});
+
+  final GoalLockController controller;
+
+  @override
+  State<_EditableGoalHeader> createState() => _EditableGoalHeaderState();
+}
+
+class _EditableGoalHeaderState extends State<_EditableGoalHeader> {
+  late final TextEditingController _goalController;
+  bool _isEditing = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _goalController = TextEditingController(text: widget.controller.goalLabel);
+  }
+
+  @override
+  void didUpdateWidget(covariant _EditableGoalHeader oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!_isEditing && _goalController.text != widget.controller.goalLabel) {
+      _goalController.text = widget.controller.goalLabel;
+    }
+  }
+
+  @override
+  void dispose() {
+    _goalController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _saveGoal() async {
+    final trimmedGoal = _goalController.text.trim();
+    if (trimmedGoal.isEmpty) {
+      return;
+    }
+    await widget.controller.updateGoal(trimmedGoal);
+    if (!mounted) {
+      return;
+    }
+    if (widget.controller.goalLabel == trimmedGoal) {
+      setState(() => _isEditing = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final dark = _isDark(context);
+    final overlay = dark ? Colors.white : Colors.black;
+
+    if (_isEditing) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          TextField(
+            controller: _goalController,
+            autofocus: true,
+            maxLines: 1,
+            textCapitalization: TextCapitalization.sentences,
+            style: Theme.of(context)
+                .textTheme
+                .displayMedium
+                ?.copyWith(fontSize: 34),
+            decoration: const InputDecoration(
+              hintText: 'What goal are you protecting now?',
+            ),
+            onSubmitted: (_) =>
+                widget.controller.isBusy ? null : _saveGoal(),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              OutlinedButton(
+                onPressed: widget.controller.isBusy
+                    ? null
+                    : () {
+                        _goalController.text = widget.controller.goalLabel;
+                        setState(() => _isEditing = false);
+                      },
+                child: const Text('Cancel'),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: ElevatedButton(
+                  onPressed:
+                      widget.controller.isBusy ? null : _saveGoal,
+                  child: const Text('Save goal'),
+                ),
+              ),
+            ],
+          ),
+        ],
+      );
+    }
+
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: widget.controller.isBusy
+          ? null
+          : () {
+              _goalController.text = widget.controller.goalLabel;
+              setState(() => _isEditing = true);
+            },
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            widget.controller.goalLabel,
+            style: Theme.of(context)
+                .textTheme
+                .displayMedium
+                ?.copyWith(fontSize: 36),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.edit_rounded,
+                size: 16,
+                color: overlay.withValues(alpha: 0.38),
+              ),
+              const SizedBox(width: 6),
+              Text(
+                'Tap title to edit goal',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: overlay.withValues(alpha: 0.42),
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.4,
+                    ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
