@@ -124,8 +124,12 @@ class GoalPlan {
     return GoalPlan(
       goalId: json['goalId'] as String?,
       goal: json['goal'] as String? ?? '',
-      morningLockMinutes: json['morningLockMinutes'] as int? ?? 390,
-      focusWindowHours: json['focusWindowHours'] as int? ?? 14,
+      morningLockMinutes: normalizeMinutesOfDay(
+        _coerceInt(json['morningLockMinutes']) ?? 390,
+      ),
+      focusWindowHours: clampFocusWindowHours(
+        _coerceInt(json['focusWindowHours']) ?? 14,
+      ),
       createdAt: DateTime.tryParse(json['createdAt'] as String? ?? '') ??
           DateTime.now(),
       armed: json['armed'] as bool? ?? false,
@@ -200,17 +204,20 @@ class GoalLockSnapshot {
     required this.account,
     required this.goalPlan,
     required this.commitments,
+    this.isDarkMode = false,
   });
 
   final UserAccount? account;
   final GoalPlan? goalPlan;
   final List<DailyCommitment> commitments;
+  final bool isDarkMode;
 
   Map<String, dynamic> toJson() {
     return {
       'account': account?.toJson(),
       'goalPlan': goalPlan?.toJson(),
       'commitments': commitments.map((entry) => entry.toJson()).toList(),
+      'isDarkMode': isDarkMode,
     };
   }
 
@@ -232,6 +239,7 @@ class GoalLockSnapshot {
             ),
       commitments:
           commitmentJson.map(DailyCommitment.fromJson).toList(growable: false),
+      isDarkMode: json['isDarkMode'] as bool? ?? false,
     );
   }
 }
@@ -262,3 +270,23 @@ DateTime dateAtMinutes(DateTime date, int minutes) {
       .add(Duration(minutes: minutes));
 }
 
+int normalizeMinutesOfDay(int minutes) {
+  return ((minutes % (24 * 60)) + (24 * 60)) % (24 * 60);
+}
+
+int clampFocusWindowHours(int hours) {
+  return hours.clamp(8, 16);
+}
+
+int? _coerceInt(Object? value) {
+  if (value is int) {
+    return value;
+  }
+  if (value is double) {
+    return value.round();
+  }
+  if (value is String) {
+    return int.tryParse(value);
+  }
+  return null;
+}

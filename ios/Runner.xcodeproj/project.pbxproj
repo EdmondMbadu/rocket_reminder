@@ -254,7 +254,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "/bin/sh \"$FLUTTER_ROOT/packages/flutter_tools/bin/xcode_backend.sh\" build";
+			shellScript = "LOCAL_PROPERTIES=\"$SRCROOT/../android/local.properties\"\nif [ -f \"$LOCAL_PROPERTIES\" ]; then\n  ROCKET_GOALS_API_KEY=$(sed -n 's/^rocket\\.goals\\.firebaseApiKey=//p' \"$LOCAL_PROPERTIES\" | head -n 1 | tr -d '\\r')\n  if [ -n \"$ROCKET_GOALS_API_KEY\" ]; then\n    ENCODED_ROCKET_GOALS_DEFINE=$(printf '%s' \"ROCKET_GOALS_FIREBASE_API_KEY=$ROCKET_GOALS_API_KEY\" | base64 | tr -d '\\n')\n    if [ -n \"${DART_DEFINES:-}\" ]; then\n      case \",$DART_DEFINES,\" in\n        *\",$ENCODED_ROCKET_GOALS_DEFINE,\"*) ;;\n        *) export DART_DEFINES=\"$DART_DEFINES,$ENCODED_ROCKET_GOALS_DEFINE\" ;;\n      esac\n    else\n      export DART_DEFINES=\"$ENCODED_ROCKET_GOALS_DEFINE\"\n    fi\n  fi\nfi\n/bin/sh \"$FLUTTER_ROOT/packages/flutter_tools/bin/xcode_backend.sh\" build";
 		};
 /* End PBXShellScriptBuildPhase section */
 

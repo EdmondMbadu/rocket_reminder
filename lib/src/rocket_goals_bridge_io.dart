@@ -109,7 +109,7 @@ class _FirebaseRestBridge implements RocketGoalsBridge {
       email: authPayload['email'] as String? ?? email.trim(),
     );
 
-    await _mergeDocument(
+    await _patchDocument(
       collection: 'userProfiles',
       documentId: credentials.userId,
       idToken: credentials.idToken,
@@ -157,7 +157,7 @@ class _FirebaseRestBridge implements RocketGoalsBridge {
     final goalId = plan.goalId ?? _randomGoalId();
     final syncedPlan = plan.copyWith(goalId: goalId, armed: true);
 
-    await _mergeDocument(
+    await _patchDocument(
       collection: 'rocketGoals',
       documentId: goalId,
       idToken: credentials.idToken,
@@ -188,7 +188,7 @@ class _FirebaseRestBridge implements RocketGoalsBridge {
       },
     );
 
-    await _mergeDocument(
+    await _patchDocument(
       collection: 'userProfiles',
       documentId: account.userId,
       idToken: credentials.idToken,
@@ -241,7 +241,7 @@ class _FirebaseRestBridge implements RocketGoalsBridge {
       'createdAt': DateTime.now().toUtc(),
     };
 
-    await _mergeDocument(
+    await _patchDocument(
       collection: 'userProfiles',
       documentId: credentials.userId,
       idToken: credentials.idToken,
@@ -281,8 +281,12 @@ class _FirebaseRestBridge implements RocketGoalsBridge {
 
     final goalLock =
         (document['goalLock'] as Map<String, dynamic>?) ?? const <String, dynamic>{};
-    final morningLock = goalLock['morningTimeMinutes'] as int? ?? 390;
-    final focusWindow = goalLock['focusWindowHours'] as int? ?? 14;
+    final morningLock = normalizeMinutesOfDay(
+      _asInt(goalLock['morningTimeMinutes']) ?? 390,
+    );
+    final focusWindow = clampFocusWindowHours(
+      _asInt(goalLock['focusWindowHours']) ?? 14,
+    );
     final armed = goalLock['armed'] as bool? ?? false;
 
     return GoalPlan(
@@ -315,23 +319,21 @@ class _FirebaseRestBridge implements RocketGoalsBridge {
     return _decodeDocument(response);
   }
 
-  Future<void> _mergeDocument({
+  Future<void> _patchDocument({
     required String collection,
     required String documentId,
     required String idToken,
     required Map<String, dynamic> values,
   }) async {
-    final existing = await _getDocument(
-      collection: collection,
-      documentId: documentId,
-      idToken: idToken,
-    );
-    final merged = <String, dynamic>{...?existing, ...values};
     await _request(
       method: 'PATCH',
-      uri: _firestoreDocumentUri(collection, documentId),
+      uri: _firestoreDocumentUri(
+        collection,
+        documentId,
+        updateMaskFieldPaths: values.keys,
+      ),
       bearerToken: idToken,
-      payload: <String, dynamic>{'fields': _encodeFields(merged)},
+      payload: <String, dynamic>{'fields': _encodeFields(values)},
     );
   }
 
@@ -351,11 +353,25 @@ class _FirebaseRestBridge implements RocketGoalsBridge {
     );
   }
 
-  Uri _firestoreDocumentUri(String collection, String documentId) {
-    return Uri.https(
+  Uri _firestoreDocumentUri(
+    String collection,
+    String documentId, {
+    Iterable<String> updateMaskFieldPaths = const [],
+  }) {
+    final baseUri = Uri.https(
       'firestore.googleapis.com',
       '/v1/projects/$_projectId/databases/(default)/documents/$collection/$documentId',
     );
+    if (updateMaskFieldPaths.isEmpty) {
+      return baseUri;
+    }
+    final query = updateMaskFieldPaths
+        .map(
+          (fieldPath) =>
+              'updateMask.fieldPaths=${Uri.encodeQueryComponent(fieldPath)}',
+        )
+        .join('&');
+    return baseUri.replace(query: query);
   }
 
   Future<Map<String, dynamic>> _postJson(
@@ -575,6 +591,19 @@ class _FirebaseRestBridge implements RocketGoalsBridge {
     final now = DateTime.now().millisecondsSinceEpoch;
     final rand = Random().nextInt(99999).toString().padLeft(5, '0');
     return 'goal_lock_$now$rand';
+  }
+
+  int? _asInt(Object? value) {
+    if (value is int) {
+      return value;
+    }
+    if (value is double) {
+      return value.round();
+    }
+    if (value is String) {
+      return int.tryParse(value);
+    }
+    return null;
   }
 }
 

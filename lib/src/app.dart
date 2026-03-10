@@ -14,6 +14,13 @@ const _brandRedDeep = Color(0xFF991B1B);
 const _brandBlack = Color(0xFF070707);
 const _brandBlackSoft = Color(0xFF101010);
 
+bool _isDark(BuildContext context) =>
+    Theme.of(context).brightness == Brightness.dark;
+
+// ---------------------------------------------------------------------------
+// App root
+// ---------------------------------------------------------------------------
+
 class GoalLockApp extends StatefulWidget {
   const GoalLockApp({super.key, required this.controller});
 
@@ -44,7 +51,11 @@ class _GoalLockAppState extends State<GoalLockApp> {
         return MaterialApp(
           debugShowCheckedModeBanner: false,
           title: 'Goal Lock',
-          theme: _buildTheme(),
+          theme: _buildTheme(Brightness.light),
+          darkTheme: _buildTheme(Brightness.dark),
+          themeMode: widget.controller.isDarkMode
+              ? ThemeMode.dark
+              : ThemeMode.light,
           home: GoalLockRoot(controller: widget.controller),
         );
       },
@@ -52,81 +63,104 @@ class _GoalLockAppState extends State<GoalLockApp> {
   }
 }
 
-ThemeData _buildTheme() {
+// ---------------------------------------------------------------------------
+// Theme
+// ---------------------------------------------------------------------------
+
+ThemeData _buildTheme(Brightness brightness) {
+  final isDark = brightness == Brightness.dark;
+
+  final bg = isDark ? _brandBlack : const Color(0xFFFAF8F5);
+  final textPrimary = isDark ? _brandWhite : const Color(0xFF1A1816);
+  final textSecondary = isDark ? _brandMist : const Color(0xFF8A8480);
+  final overlay = isDark ? Colors.white : Colors.black;
+
   final scheme = ColorScheme.fromSeed(
     seedColor: _brandRed,
-    brightness: Brightness.dark,
+    brightness: brightness,
     primary: _brandRed,
-    secondary: _brandWhite,
-    tertiary: _brandWhite,
-    surface: _brandBlack,
+    secondary: isDark ? _brandWhite : _brandBlack,
+    surface: bg,
   );
 
   return ThemeData(
     colorScheme: scheme,
     useMaterial3: true,
-    scaffoldBackgroundColor: _brandBlack,
-    textTheme: const TextTheme(
+    scaffoldBackgroundColor: bg,
+    textTheme: TextTheme(
       displayLarge: TextStyle(
-        color: _brandWhite,
+        color: textPrimary,
         fontWeight: FontWeight.w900,
         letterSpacing: -1.6,
         height: 0.96,
       ),
       displayMedium: TextStyle(
-        color: _brandWhite,
+        color: textPrimary,
         fontWeight: FontWeight.w900,
         letterSpacing: -1.2,
         height: 1,
       ),
+      displaySmall: TextStyle(
+        color: textPrimary,
+        fontWeight: FontWeight.w800,
+      ),
       headlineLarge: TextStyle(
-        color: _brandWhite,
+        color: textPrimary,
         fontWeight: FontWeight.w800,
         letterSpacing: -0.8,
       ),
       headlineMedium: TextStyle(
-        color: _brandWhite,
+        color: textPrimary,
         fontWeight: FontWeight.w700,
         letterSpacing: -0.6,
       ),
       titleLarge: TextStyle(
-        color: _brandWhite,
+        color: textPrimary,
+        fontWeight: FontWeight.w700,
+      ),
+      titleMedium: TextStyle(
+        color: textPrimary,
         fontWeight: FontWeight.w700,
       ),
       bodyLarge: TextStyle(
-        color: _brandMist,
+        color: textSecondary,
         fontWeight: FontWeight.w500,
         height: 1.45,
       ),
       bodyMedium: TextStyle(
-        color: _brandMist,
+        color: textSecondary,
         fontWeight: FontWeight.w500,
         height: 1.35,
       ),
+      bodySmall: TextStyle(
+        color: textSecondary,
+        fontWeight: FontWeight.w600,
+      ),
       labelLarge: TextStyle(
-        color: _brandWhite,
+        color: textPrimary,
         fontWeight: FontWeight.w700,
         letterSpacing: 0.4,
       ),
     ),
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
-      fillColor: Colors.white.withValues(alpha: 0.06),
+      fillColor: overlay.withValues(alpha: isDark ? 0.06 : 0.04),
       contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(24),
-        borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.10)),
+        borderSide: BorderSide(color: overlay.withValues(alpha: 0.10)),
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(24),
-        borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.10)),
+        borderSide: BorderSide(color: overlay.withValues(alpha: 0.10)),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(24),
         borderSide: const BorderSide(color: _brandRed, width: 1.5),
       ),
-      hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.32)),
-      labelStyle: TextStyle(color: Colors.white.withValues(alpha: 0.75)),
+      hintStyle: TextStyle(color: overlay.withValues(alpha: 0.32)),
+      labelStyle:
+          TextStyle(color: overlay.withValues(alpha: isDark ? 0.75 : 0.55)),
     ),
     elevatedButtonTheme: ElevatedButtonThemeData(
       style: ElevatedButton.styleFrom(
@@ -146,8 +180,9 @@ ThemeData _buildTheme() {
     ),
     outlinedButtonTheme: OutlinedButtonThemeData(
       style: OutlinedButton.styleFrom(
-        foregroundColor: _brandWhite,
-        side: BorderSide(color: Colors.white.withValues(alpha: 0.18)),
+        foregroundColor: textPrimary,
+        side: BorderSide(
+            color: overlay.withValues(alpha: isDark ? 0.18 : 0.15)),
         minimumSize: const Size.fromHeight(56),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(24),
@@ -155,12 +190,9 @@ ThemeData _buildTheme() {
       ),
     ),
     chipTheme: ChipThemeData(
-      backgroundColor: Colors.white.withValues(alpha: 0.08),
-      labelStyle: TextStyle(
-        color: _brandWhite,
-        fontWeight: FontWeight.w700,
-      ),
-      side: BorderSide(color: Colors.white.withValues(alpha: 0.10)),
+      backgroundColor: overlay.withValues(alpha: isDark ? 0.08 : 0.05),
+      labelStyle: TextStyle(color: textPrimary, fontWeight: FontWeight.w700),
+      side: BorderSide(color: overlay.withValues(alpha: isDark ? 0.10 : 0.08)),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
     ),
   );
@@ -177,19 +209,30 @@ class GoalLockRoot extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final dark = _isDark(context);
     final phase = controller.lockPhase;
     return Scaffold(
       body: DecoratedBox(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: <Color>[_brandBlack, Color(0xFF160708), _brandBlackSoft],
+            colors: dark
+                ? const <Color>[
+                    _brandBlack,
+                    Color(0xFF160708),
+                    _brandBlackSoft,
+                  ]
+                : const <Color>[
+                    Color(0xFFFCFAF7),
+                    Color(0xFFF7F3EE),
+                    Color(0xFFFAF8F5),
+                  ],
           ),
         ),
         child: Stack(
           children: [
-            const Positioned.fill(child: _AmbientGlow()),
+            Positioned.fill(child: _AmbientGlow(dark: dark)),
             SafeArea(
               child: AnimatedSwitcher(
                 duration: const Duration(milliseconds: 500),
@@ -232,16 +275,19 @@ class _LoadingView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Center(
+    return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          _RocketBadge(size: 72),
-          SizedBox(height: 28),
+          const _RocketBadge(size: 72),
+          const SizedBox(height: 28),
           SizedBox(
             width: 24,
             height: 24,
-            child: CircularProgressIndicator(strokeWidth: 2.2, color: _brandMist),
+            child: CircularProgressIndicator(
+              strokeWidth: 2.2,
+              color: _isDark(context) ? _brandMist : _brandSmoke,
+            ),
           ),
         ],
       ),
@@ -288,7 +334,10 @@ class _AuthViewState extends State<_AuthView> {
 
   @override
   Widget build(BuildContext context) {
+    final dark = _isDark(context);
+    final onBg = dark ? Colors.white : Colors.black;
     final isSignUp = widget.controller.authMode == AuthMode.signUp;
+
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(24, 40, 24, 40),
       child: Center(
@@ -324,9 +373,8 @@ class _AuthViewState extends State<_AuthView> {
                         child: TextField(
                           controller: _firstNameController,
                           textCapitalization: TextCapitalization.words,
-                          decoration: const InputDecoration(
-                            hintText: 'First name',
-                          ),
+                          decoration:
+                              const InputDecoration(hintText: 'First name'),
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -334,9 +382,8 @@ class _AuthViewState extends State<_AuthView> {
                         child: TextField(
                           controller: _lastNameController,
                           textCapitalization: TextCapitalization.words,
-                          decoration: const InputDecoration(
-                            hintText: 'Last name',
-                          ),
+                          decoration:
+                              const InputDecoration(hintText: 'Last name'),
                         ),
                       ),
                     ],
@@ -392,12 +439,12 @@ class _AuthViewState extends State<_AuthView> {
                   child: Text(
                     'Skip — preview without account',
                     style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.5),
+                      color: onBg.withValues(alpha: 0.45),
                       fontWeight: FontWeight.w600,
                     ),
                   ),
                 ),
-                if (!isSignUp) ...[
+                if (!isSignUp)
                   TextButton(
                     onPressed: widget.controller.isBusy
                         ? null
@@ -406,12 +453,11 @@ class _AuthViewState extends State<_AuthView> {
                     child: Text(
                       'Forgot password?',
                       style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.4),
+                        color: onBg.withValues(alpha: 0.35),
                         fontWeight: FontWeight.w600,
                       ),
                     ),
                   ),
-                ],
               ],
             ),
           ),
@@ -466,9 +512,8 @@ class _OnboardingViewState extends State<_OnboardingView> {
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
-            colorScheme: Theme.of(context).colorScheme.copyWith(
-                  primary: _brandRed,
-                ),
+            colorScheme:
+                Theme.of(context).colorScheme.copyWith(primary: _brandRed),
           ),
           child: child!,
         );
@@ -483,6 +528,9 @@ class _OnboardingViewState extends State<_OnboardingView> {
 
   @override
   Widget build(BuildContext context) {
+    final dark = _isDark(context);
+    final overlay = dark ? Colors.white : Colors.black;
+
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(24, 40, 24, 40),
       child: Center(
@@ -494,7 +542,7 @@ class _OnboardingViewState extends State<_OnboardingView> {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Center(child: const _RocketBadge(size: 48)),
+                const Center(child: _RocketBadge(size: 48)),
                 const SizedBox(height: 24),
                 Text(
                   'What\'s your one goal?',
@@ -505,9 +553,8 @@ class _OnboardingViewState extends State<_OnboardingView> {
                   controller: _goalController,
                   maxLines: 1,
                   textCapitalization: TextCapitalization.sentences,
-                  decoration: const InputDecoration(
-                    hintText: 'Write my book',
-                  ),
+                  decoration:
+                      const InputDecoration(hintText: 'Write my book'),
                 ),
                 const SizedBox(height: 14),
                 Wrap(
@@ -549,8 +596,9 @@ class _OnboardingViewState extends State<_OnboardingView> {
                 SliderTheme(
                   data: SliderTheme.of(context).copyWith(
                     activeTrackColor: _brandRed,
-                    inactiveTrackColor: Colors.white.withValues(alpha: 0.08),
-                    thumbColor: _brandWhite,
+                    inactiveTrackColor:
+                        overlay.withValues(alpha: 0.08),
+                    thumbColor: dark ? _brandWhite : _brandBlack,
                     overlayColor: const Color(0x33DC2626),
                   ),
                   child: Slider(
@@ -559,9 +607,8 @@ class _OnboardingViewState extends State<_OnboardingView> {
                     max: 16,
                     divisions: 8,
                     label: '${_focusWindowHours.round()}h',
-                    onChanged: (value) {
-                      setState(() => _focusWindowHours = value);
-                    },
+                    onChanged: (v) =>
+                        setState(() => _focusWindowHours = v),
                   ),
                 ),
                 const SizedBox(height: 20),
@@ -604,6 +651,9 @@ class _ActiveView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final dark = _isDark(context);
+    final onBg = dark ? Colors.white : Colors.black;
+
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(22, 16, 22, 34),
       child: Center(
@@ -619,9 +669,20 @@ class _ActiveView extends StatelessWidget {
                   Text(
                     'Goal Lock',
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          color: Colors.white.withValues(alpha: 0.6),
+                          color: onBg.withValues(alpha: 0.5),
                           fontWeight: FontWeight.w800,
                         ),
+                  ),
+                  const Spacer(),
+                  GestureDetector(
+                    onTap: controller.toggleTheme,
+                    child: Icon(
+                      dark
+                          ? Icons.light_mode_rounded
+                          : Icons.dark_mode_rounded,
+                      color: onBg.withValues(alpha: 0.4),
+                      size: 22,
+                    ),
                   ),
                 ],
               ),
@@ -663,7 +724,10 @@ class _TodayTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final dark = _isDark(context);
+    final onBg = dark ? Colors.white : Colors.black;
     final today = controller.todayCommitment;
+
     return Column(
       key: const ValueKey('today'),
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -696,7 +760,7 @@ class _TodayTab extends StatelessWidget {
                       'TODAY\'S ONE THING',
                       style:
                           Theme.of(context).textTheme.bodySmall?.copyWith(
-                                color: Colors.white.withValues(alpha: 0.5),
+                                color: onBg.withValues(alpha: 0.45),
                                 fontWeight: FontWeight.w800,
                                 letterSpacing: 1.8,
                               ),
@@ -748,7 +812,7 @@ class _TodayTab extends StatelessWidget {
                   'RECENT',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         letterSpacing: 2,
-                        color: Colors.white.withValues(alpha: 0.5),
+                        color: onBg.withValues(alpha: 0.45),
                         fontWeight: FontWeight.w800,
                       ),
                 ),
@@ -850,6 +914,9 @@ class _SettingsTabState extends State<_SettingsTab> {
 
   @override
   Widget build(BuildContext context) {
+    final dark = _isDark(context);
+    final overlay = dark ? Colors.white : Colors.black;
+
     return Column(
       key: const ValueKey('settings'),
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -874,14 +941,15 @@ class _SettingsTabState extends State<_SettingsTab> {
               Text(
                 'Focus window: ${_focusWindowHours.round()} hours',
                 style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                      color: _brandWhite,
+                      color: dark ? _brandWhite : _brandBlack,
                     ),
               ),
               SliderTheme(
                 data: SliderTheme.of(context).copyWith(
                   activeTrackColor: _brandRed,
-                  inactiveTrackColor: Colors.white.withValues(alpha: 0.08),
-                  thumbColor: _brandWhite,
+                  inactiveTrackColor:
+                      overlay.withValues(alpha: 0.08),
+                  thumbColor: dark ? _brandWhite : _brandBlack,
                   overlayColor: const Color(0x33DC2626),
                 ),
                 child: Slider(
@@ -890,9 +958,8 @@ class _SettingsTabState extends State<_SettingsTab> {
                   divisions: 8,
                   value: _focusWindowHours,
                   label: '${_focusWindowHours.round()}h',
-                  onChanged: (value) {
-                    setState(() => _focusWindowHours = value);
-                  },
+                  onChanged: (v) =>
+                      setState(() => _focusWindowHours = v),
                 ),
               ),
               const SizedBox(height: 10),
@@ -904,6 +971,31 @@ class _SettingsTabState extends State<_SettingsTab> {
                           focusWindowHours: _focusWindowHours.round(),
                         ),
                 child: const Text('Save schedule'),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 18),
+        _GlassPanel(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+          child: Row(
+            children: [
+              Icon(
+                dark ? Icons.dark_mode_rounded : Icons.light_mode_rounded,
+                size: 20,
+                color: overlay.withValues(alpha: 0.6),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'Dark mode',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+              ),
+              Switch.adaptive(
+                value: widget.controller.isDarkMode,
+                activeTrackColor: _brandRed,
+                onChanged: (_) => widget.controller.toggleTheme(),
               ),
             ],
           ),
@@ -922,7 +1014,7 @@ class _SettingsTabState extends State<_SettingsTab> {
               Text(
                 widget.controller.account?.displayName ?? '',
                 style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                      color: _brandWhite,
+                      color: dark ? _brandWhite : _brandBlack,
                       fontWeight: FontWeight.w700,
                     ),
               ),
@@ -1090,7 +1182,10 @@ class _BannerToast extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final dark = _isDark(context);
     final isError = controller.errorMessage != null;
+    final fg = isError ? Colors.white : (dark ? Colors.white : _brandBlack);
+
     return Material(
       color: Colors.transparent,
       child: ClipRRect(
@@ -1098,14 +1193,19 @@ class _BannerToast extends StatelessWidget {
         child: BackdropFilter(
           filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+            padding:
+                const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
             decoration: BoxDecoration(
               color: isError
                   ? const Color(0x88DC2626)
-                  : Colors.white.withValues(alpha: 0.16),
+                  : (dark
+                      ? Colors.white.withValues(alpha: 0.16)
+                      : Colors.black.withValues(alpha: 0.06)),
               borderRadius: BorderRadius.circular(22),
-              border:
-                  Border.all(color: Colors.white.withValues(alpha: 0.12)),
+              border: Border.all(
+                color: (dark ? Colors.white : Colors.black)
+                    .withValues(alpha: 0.12),
+              ),
             ),
             child: Row(
               children: [
@@ -1113,7 +1213,7 @@ class _BannerToast extends StatelessWidget {
                   isError
                       ? Icons.warning_rounded
                       : Icons.check_circle_rounded,
-                  color: Colors.white,
+                  color: fg,
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -1122,15 +1222,14 @@ class _BannerToast extends StatelessWidget {
                         controller.noticeMessage ??
                         '',
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: Colors.white,
+                          color: fg,
                           fontWeight: FontWeight.w700,
                         ),
                   ),
                 ),
                 IconButton(
                   onPressed: controller.dismissBanner,
-                  icon:
-                      const Icon(Icons.close_rounded, color: Colors.white),
+                  icon: Icon(Icons.close_rounded, color: fg),
                 ),
               ],
             ),
@@ -1158,25 +1257,34 @@ class _GlassPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final dark = _isDark(context);
     return SizedBox(
       width: width,
       child: ClipRRect(
         borderRadius: BorderRadius.circular(28),
         child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 28, sigmaY: 28),
+          filter: ImageFilter.blur(
+            sigmaX: dark ? 28 : 18,
+            sigmaY: dark ? 28 : 18,
+          ),
           child: Container(
             padding: padding,
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.08),
+              color: dark
+                  ? Colors.white.withValues(alpha: 0.08)
+                  : Colors.white.withValues(alpha: 0.82),
               borderRadius: BorderRadius.circular(28),
-              border:
-                  Border.all(color: Colors.white.withValues(alpha: 0.12)),
+              border: Border.all(
+                color: dark
+                    ? Colors.white.withValues(alpha: 0.12)
+                    : Colors.black.withValues(alpha: 0.06),
+              ),
               boxShadow: [
                 BoxShadow(
-                  color:
-                      const Color(0xFF000000).withValues(alpha: 0.18),
-                  blurRadius: 30,
-                  offset: const Offset(0, 18),
+                  color: Colors.black
+                      .withValues(alpha: dark ? 0.18 : 0.06),
+                  blurRadius: dark ? 30 : 16,
+                  offset: Offset(0, dark ? 18 : 8),
                 ),
               ],
             ),
@@ -1189,18 +1297,22 @@ class _GlassPanel extends StatelessWidget {
 }
 
 class _AmbientGlow extends StatelessWidget {
-  const _AmbientGlow();
+  const _AmbientGlow({required this.dark});
+
+  final bool dark;
 
   @override
   Widget build(BuildContext context) {
-    return const Stack(
+    return Stack(
       children: [
         Positioned(
           top: -120,
           left: -80,
           child: _BlurOrb(
             size: 320,
-            colors: [Color(0x55DC2626), Color(0x00DC2626)],
+            colors: dark
+                ? const [Color(0x55DC2626), Color(0x00DC2626)]
+                : const [Color(0x12DC2626), Color(0x00DC2626)],
           ),
         ),
         Positioned(
@@ -1208,7 +1320,9 @@ class _AmbientGlow extends StatelessWidget {
           right: -60,
           child: _BlurOrb(
             size: 280,
-            colors: [Color(0x33991B1B), Color(0x00991B1B)],
+            colors: dark
+                ? const [Color(0x33991B1B), Color(0x00991B1B)]
+                : const [Color(0x0A991B1B), Color(0x00991B1B)],
           ),
         ),
       ],
@@ -1281,11 +1395,14 @@ class _ModeSwitch extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final dark = _isDark(context);
+    final overlay = dark ? Colors.white : Colors.black;
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.05),
+        color: overlay.withValues(alpha: dark ? 0.05 : 0.04),
         borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+        border:
+            Border.all(color: overlay.withValues(alpha: dark ? 0.08 : 0.06)),
       ),
       padding: const EdgeInsets.all(5),
       child: Row(
@@ -1323,6 +1440,7 @@ class _SwitchPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final dark = _isDark(context);
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
@@ -1337,8 +1455,10 @@ class _SwitchPill extends StatelessWidget {
           child: Text(
             label,
             style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                  color:
-                      Colors.white.withValues(alpha: selected ? 1 : 0.6),
+                  color: selected
+                      ? Colors.white
+                      : (dark ? Colors.white : Colors.black)
+                          .withValues(alpha: 0.6),
                 ),
           ),
         ),
@@ -1354,12 +1474,15 @@ class _TabBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final dark = _isDark(context);
+    final overlay = dark ? Colors.white : Colors.black;
     return Container(
       padding: const EdgeInsets.all(5),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(24),
-        color: Colors.white.withValues(alpha: 0.05),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+        color: overlay.withValues(alpha: dark ? 0.05 : 0.04),
+        border:
+            Border.all(color: overlay.withValues(alpha: dark ? 0.08 : 0.06)),
       ),
       child: Row(
         children: [
@@ -1402,6 +1525,10 @@ class _TabPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final dark = _isDark(context);
+    final unselectedColor =
+        (dark ? Colors.white : Colors.black).withValues(alpha: 0.55);
+
     return Expanded(
       child: GestureDetector(
         onTap: onTap,
@@ -1419,16 +1546,14 @@ class _TabPill extends StatelessWidget {
               Icon(
                 icon,
                 size: 17,
-                color:
-                    Colors.white.withValues(alpha: selected ? 1 : 0.6),
+                color: selected ? Colors.white : unselectedColor,
               ),
               const SizedBox(width: 6),
               Text(
                 label,
                 style: Theme.of(context).textTheme.labelLarge?.copyWith(
                       fontSize: 13,
-                      color: Colors.white
-                          .withValues(alpha: selected ? 1 : 0.6),
+                      color: selected ? Colors.white : unselectedColor,
                     ),
               ),
             ],
@@ -1447,27 +1572,31 @@ class _StatChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final dark = _isDark(context);
+    final overlay = dark ? Colors.white : Colors.black;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(20),
-        color: Colors.white.withValues(alpha: 0.06),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+        color: overlay.withValues(alpha: dark ? 0.06 : 0.04),
+        border:
+            Border.all(color: overlay.withValues(alpha: dark ? 0.08 : 0.06)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             value,
-            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                  fontSize: 24,
-                ),
+            style: Theme.of(context)
+                .textTheme
+                .headlineMedium
+                ?.copyWith(fontSize: 24),
           ),
           const SizedBox(height: 2),
           Text(
             label,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Colors.white.withValues(alpha: 0.5),
+                  color: overlay.withValues(alpha: 0.45),
                   fontWeight: FontWeight.w700,
                 ),
           ),
@@ -1484,6 +1613,9 @@ class _MomentumRing extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final dark = _isDark(context);
+    final overlay = dark ? Colors.white : Colors.black;
+
     return LayoutBuilder(
       builder: (context, constraints) {
         final size = math.min(constraints.maxWidth, 200.0);
@@ -1499,7 +1631,13 @@ class _MomentumRing extends StatelessWidget {
                 return Stack(
                   fit: StackFit.expand,
                   children: [
-                    CustomPaint(painter: _RingPainter(progress: value)),
+                    CustomPaint(
+                      painter: _RingPainter(
+                        progress: value,
+                        baseRingColor:
+                            overlay.withValues(alpha: 0.07),
+                      ),
+                    ),
                     Center(
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
@@ -1509,10 +1647,7 @@ class _MomentumRing extends StatelessWidget {
                             style: Theme.of(context)
                                 .textTheme
                                 .displaySmall
-                                ?.copyWith(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w900,
-                                ),
+                                ?.copyWith(fontWeight: FontWeight.w900),
                           ),
                           const SizedBox(height: 2),
                           Text(
@@ -1521,8 +1656,8 @@ class _MomentumRing extends StatelessWidget {
                                 .textTheme
                                 .bodySmall
                                 ?.copyWith(
-                                  color: Colors.white
-                                      .withValues(alpha: 0.5),
+                                  color:
+                                      overlay.withValues(alpha: 0.45),
                                   fontWeight: FontWeight.w700,
                                 ),
                           ),
@@ -1541,9 +1676,10 @@ class _MomentumRing extends StatelessWidget {
 }
 
 class _RingPainter extends CustomPainter {
-  _RingPainter({required this.progress});
+  _RingPainter({required this.progress, required this.baseRingColor});
 
   final double progress;
+  final Color baseRingColor;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -1553,7 +1689,7 @@ class _RingPainter extends CustomPainter {
     final basePaint = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 18
-      ..color = Colors.white.withValues(alpha: 0.07)
+      ..color = baseRingColor
       ..strokeCap = StrokeCap.round;
 
     final progressPaint = Paint()
@@ -1576,7 +1712,8 @@ class _RingPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _RingPainter oldDelegate) =>
-      oldDelegate.progress != progress;
+      oldDelegate.progress != progress ||
+      oldDelegate.baseRingColor != baseRingColor;
 }
 
 class _CompactHistoryRow extends StatelessWidget {
@@ -1586,6 +1723,7 @@ class _CompactHistoryRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final dark = _isDark(context);
     return Row(
       children: [
         Container(
@@ -1594,7 +1732,7 @@ class _CompactHistoryRow extends StatelessWidget {
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             color: switch (entry.didComplete) {
-              true => _brandWhite,
+              true => dark ? _brandWhite : const Color(0xFF22C55E),
               false => _brandRed,
               null => _brandSmoke,
             },
@@ -1607,7 +1745,7 @@ class _CompactHistoryRow extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Colors.white,
+                  color: dark ? Colors.white : _brandBlack,
                   fontWeight: FontWeight.w600,
                 ),
           ),
@@ -1616,7 +1754,8 @@ class _CompactHistoryRow extends StatelessWidget {
         Text(
           entry.dateKey.substring(5),
           style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Colors.white.withValues(alpha: 0.4),
+                color: (dark ? Colors.white : Colors.black)
+                    .withValues(alpha: 0.4),
               ),
         ),
       ],
@@ -1632,8 +1771,11 @@ class _WeeklyStrip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (entries.isEmpty) return const SizedBox.shrink();
+    final dark = _isDark(context);
+    final overlay = dark ? Colors.white : Colors.black;
     final ordered = [...entries]
       ..sort((a, b) => a.dateKey.compareTo(b.dateKey));
+
     return Row(
       children: [
         for (final entry in ordered)
@@ -1645,19 +1787,23 @@ class _WeeklyStrip extends StatelessWidget {
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(14),
                   color: switch (entry.didComplete) {
-                    true => const Color(0x44F7F4EF),
-                    false => const Color(0x44DC2626),
-                    null => const Color(0x22D6D1CB),
+                    true => dark
+                        ? const Color(0x44F7F4EF)
+                        : const Color(0x3022C55E),
+                    false => const Color(0x33DC2626),
+                    null => dark
+                        ? const Color(0x22D6D1CB)
+                        : const Color(0x11D6D1CB),
                   },
                   border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.06)),
+                      color: overlay.withValues(alpha: 0.06)),
                 ),
                 child: Center(
                   child: Text(
                     entry.dateKey.substring(8),
                     style:
                         Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: Colors.white,
+                              color: dark ? Colors.white : _brandBlack,
                               fontWeight: FontWeight.w800,
                             ),
                   ),
@@ -1677,17 +1823,21 @@ class _HistoryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final tone = switch (entry.didComplete) {
-      true => _brandWhite,
+    final dark = _isDark(context);
+    final overlay = dark ? Colors.white : Colors.black;
+    final dotColor = switch (entry.didComplete) {
+      true => dark ? _brandWhite : const Color(0xFF22C55E),
       false => _brandRed,
       null => _brandSmoke,
     };
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(20),
-        color: Colors.white.withValues(alpha: 0.05),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+        color: overlay.withValues(alpha: dark ? 0.05 : 0.03),
+        border:
+            Border.all(color: overlay.withValues(alpha: dark ? 0.08 : 0.06)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1698,7 +1848,7 @@ class _HistoryCard extends StatelessWidget {
             margin: const EdgeInsets.only(top: 6),
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: tone,
+              color: dotColor,
             ),
           ),
           const SizedBox(width: 12),
@@ -1709,7 +1859,7 @@ class _HistoryCard extends StatelessWidget {
                 Text(
                   entry.oneThing,
                   style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                        color: _brandWhite,
+                        color: dark ? _brandWhite : _brandBlack,
                         fontWeight: FontWeight.w600,
                       ),
                 ),
@@ -1717,7 +1867,7 @@ class _HistoryCard extends StatelessWidget {
                 Text(
                   entry.dateKey,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Colors.white.withValues(alpha: 0.4),
+                        color: overlay.withValues(alpha: 0.4),
                       ),
                 ),
               ],

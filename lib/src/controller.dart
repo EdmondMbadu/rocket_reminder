@@ -30,6 +30,7 @@ class GoalLockController extends ChangeNotifier {
 
   bool _isReady = false;
   bool _isBusy = false;
+  bool _isDarkMode = false;
   AuthMode _authMode = AuthMode.signIn;
   AppTab _currentTab = AppTab.today;
   String? _errorMessage;
@@ -40,6 +41,7 @@ class GoalLockController extends ChangeNotifier {
 
   bool get isReady => _isReady;
   bool get isBusy => _isBusy;
+  bool get isDarkMode => _isDarkMode;
   AuthMode get authMode => _authMode;
   AppTab get currentTab => _currentTab;
   String? get errorMessage => _errorMessage;
@@ -144,6 +146,7 @@ class GoalLockController extends ChangeNotifier {
       _account = snapshot.account;
       _goalPlan = snapshot.goalPlan;
       _commitments = snapshot.commitments;
+      _isDarkMode = snapshot.isDarkMode;
       if (reconnectNeeded) {
         _noticeMessage =
             'Local progress restored. Log back into Rocket Goals to resume cloud sync.';
@@ -168,6 +171,12 @@ class GoalLockController extends ChangeNotifier {
   void selectTab(AppTab tab) {
     _currentTab = tab;
     notifyListeners();
+  }
+
+  void toggleTheme() {
+    _isDarkMode = !_isDarkMode;
+    notifyListeners();
+    _persist();
   }
 
   Future<void> continueInPreview() async {
@@ -275,6 +284,11 @@ class GoalLockController extends ChangeNotifier {
             : 'Goal Lock armed.';
       } on BridgeException catch (error) {
         _noticeMessage = error.message;
+      } catch (error, stackTrace) {
+        debugPrint('Goal Lock sync failed while arming: $error');
+        debugPrintStack(stackTrace: stackTrace);
+        _noticeMessage =
+            'Goal Lock armed locally. Rocket Goals sync hit an unexpected error.';
       }
     } else {
       _noticeMessage = 'Goal Lock armed. Your phone ritual starts tomorrow.';
@@ -432,6 +446,11 @@ class GoalLockController extends ChangeNotifier {
       );
     } on BridgeException catch (error) {
       _noticeMessage = error.message;
+    } catch (error, stackTrace) {
+      debugPrint('Goal Lock sync failed during background update: $error');
+      debugPrintStack(stackTrace: stackTrace);
+      _noticeMessage =
+          'Saved locally. Rocket Goals sync hit an unexpected error.';
     }
   }
 
@@ -516,6 +535,7 @@ class GoalLockController extends ChangeNotifier {
         account: _account,
         goalPlan: _goalPlan,
         commitments: _commitments,
+        isDarkMode: _isDarkMode,
       ).toJson(),
     );
   }
