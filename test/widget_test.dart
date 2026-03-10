@@ -31,7 +31,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Write my book'), findsWidgets);
-    expect(find.text('Goal Lock'), findsOneWidget);
+    expect(find.text('Rocket Reminder'), findsOneWidget);
   });
 
   testWidgets('morning lock accepts one thing and unlocks', (tester) async {

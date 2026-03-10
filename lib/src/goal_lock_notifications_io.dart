@@ -14,9 +14,9 @@ class _FlutterGoalLockNotifications implements GoalLockNotifications {
   static const int _morningNotificationId = 4101;
   static const int _eveningNotificationId = 4102;
   static const String _channelId = 'goal_lock_daily';
-  static const String _channelName = 'Goal Lock reminders';
+  static const String _channelName = 'Rocket Reminder alerts';
   static const String _channelDescription =
-      'Morning and evening Goal Lock reminders.';
+      'Morning and evening Rocket Reminder alerts.';
 
   final FlutterLocalNotificationsPlugin _plugin =
       FlutterLocalNotificationsPlugin();
@@ -110,7 +110,7 @@ class _FlutterGoalLockNotifications implements GoalLockNotifications {
     final when = _nextTimeOfDay(morningLockMinutes);
     await _plugin.zonedSchedule(
       id: _morningNotificationId,
-      title: 'Goal Lock',
+      title: 'Rocket Reminder',
       body: 'What is the ONE thing you will do today for ${_compact(goal)}?',
       scheduledDate: when,
       notificationDetails: _details,
@@ -132,7 +132,7 @@ class _FlutterGoalLockNotifications implements GoalLockNotifications {
 
     await _plugin.zonedSchedule(
       id: _eveningNotificationId,
-      title: 'Goal Lock reflection',
+      title: 'Rocket Reminder reflection',
       body: 'Did you do it? ${_compact(reminder.oneThing)}',
       scheduledDate: scheduledAt,
       notificationDetails: _details,
