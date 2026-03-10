@@ -3,15 +3,18 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:rocket_reminder/src/app.dart';
 import 'package:rocket_reminder/src/controller.dart';
+import 'package:rocket_reminder/src/goal_lock_notifications_base.dart';
 import 'package:rocket_reminder/src/local_cache_base.dart';
 import 'package:rocket_reminder/src/models.dart';
 import 'package:rocket_reminder/src/rocket_goals_bridge_base.dart';
 
 void main() {
   testWidgets('preview onboarding arms the app shell', (tester) async {
+    final notifications = _MemoryNotifications();
     final controller = GoalLockController(
       cache: _MemoryCache(),
       bridge: const _FakeBridge(),
+      notifications: notifications,
       now: () => DateTime(2026, 3, 7, 5, 30),
     );
 
@@ -52,9 +55,11 @@ void main() {
       commitments: const [],
     );
 
+    final notifications = _MemoryNotifications();
     final controller = GoalLockController(
       cache: _MemoryCache(seed: snapshot.toJson()),
       bridge: const _FakeBridge(),
+      notifications: notifications,
       now: () => DateTime(2026, 3, 7, 8),
     );
 
@@ -77,6 +82,7 @@ void main() {
     final controller = GoalLockController(
       cache: _MemoryCache(),
       bridge: bridge,
+      notifications: _MemoryNotifications(),
       now: () => DateTime(2026, 3, 7, 6),
     );
 
@@ -108,6 +114,53 @@ void main() {
 
     expect(plan.morningLockMinutes, 37);
     expect(plan.focusWindowHours, 16);
+  });
+
+  test('arming a goal schedules the morning reminder', () async {
+    final notifications = _MemoryNotifications();
+    final controller = GoalLockController(
+      cache: _MemoryCache(),
+      bridge: const _ExplodingBridge(),
+      notifications: notifications,
+      now: () => DateTime(2026, 3, 7, 6),
+    );
+
+    await controller.initialize();
+    await controller.signIn(email: 'ava@rocket.test', password: 'secret123');
+    await controller.armGoalLock(
+      goal: 'Write my book',
+      morningLockMinutes: 7 * 60,
+      focusWindowHours: 14,
+    );
+
+    expect(notifications.permissionRequests, 1);
+    expect(notifications.morningGoal, 'Write my book');
+    expect(notifications.morningLockMinutes, 7 * 60);
+  });
+
+  test('submitting the morning one thing schedules the evening reflection', () async {
+    final notifications = _MemoryNotifications();
+    final controller = GoalLockController(
+      cache: _MemoryCache(),
+      bridge: const _FakeBridge(),
+      notifications: notifications,
+      now: () => DateTime(2026, 3, 7, 8),
+    );
+
+    await controller.initialize();
+    await controller.continueInPreview();
+    await controller.armGoalLock(
+      goal: 'Launch my startup',
+      morningLockMinutes: 6 * 60,
+      focusWindowHours: 14,
+    );
+    await controller.submitMorningOneThing('Call 3 design partners');
+
+    expect(notifications.eveningReminder?.oneThing, 'Call 3 design partners');
+    expect(
+      notifications.eveningReminder?.when,
+      DateTime(2026, 3, 7, 20),
+    );
   });
 }
 
@@ -201,5 +254,49 @@ class _ExplodingBridge extends _FakeBridge {
     DailyCommitment? latestCommitment,
   }) {
     throw ArgumentError.value('bad sync payload');
+  }
+}
+
+class _MemoryNotifications implements GoalLockNotifications {
+  int initializeCalls = 0;
+  int permissionRequests = 0;
+  int cancelCalls = 0;
+  String? morningGoal;
+  int? morningLockMinutes;
+  EveningReflectionReminder? eveningReminder;
+
+  @override
+  Future<void> cancelAll() async {
+    cancelCalls += 1;
+    morningGoal = null;
+    morningLockMinutes = null;
+    eveningReminder = null;
+  }
+
+  @override
+  Future<bool> ensurePermissions() async {
+    permissionRequests += 1;
+    return true;
+  }
+
+  @override
+  Future<void> initialize() async {
+    initializeCalls += 1;
+  }
+
+  @override
+  Future<void> scheduleEveningReflection(
+    EveningReflectionReminder reminder,
+  ) async {
+    eveningReminder = reminder;
+  }
+
+  @override
+  Future<void> scheduleMorningLock({
+    required String goal,
+    required int morningLockMinutes,
+  }) async {
+    morningGoal = goal;
+    this.morningLockMinutes = morningLockMinutes;
   }
 }

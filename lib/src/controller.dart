@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
+import 'goal_lock_notifications.dart';
 import 'local_cache.dart';
 import 'local_cache_base.dart';
 import 'models.dart';
@@ -16,13 +17,16 @@ class GoalLockController extends ChangeNotifier {
   GoalLockController({
     LocalCache? cache,
     RocketGoalsBridge? bridge,
+    GoalLockNotifications? notifications,
     DateTime Function()? now,
   })  : _cache = cache ?? createLocalCache(),
         _bridge = bridge ?? createRocketGoalsBridge(),
+        _notifications = notifications ?? createGoalLockNotifications(),
         _now = now ?? DateTime.now;
 
   final LocalCache _cache;
   final RocketGoalsBridge _bridge;
+  final GoalLockNotifications _notifications;
   final DateTime Function() _now;
 
   Timer? _ticker;
@@ -140,6 +144,7 @@ class GoalLockController extends ChangeNotifier {
   }
 
   Future<void> initialize() async {
+    await _notifications.initialize();
     final raw = await _cache.readJson();
     if (raw != null) {
       final snapshot = GoalLockSnapshot.fromJson(raw);
@@ -152,6 +157,7 @@ class GoalLockController extends ChangeNotifier {
             'Local progress restored. Log back into Rocket Goals to resume cloud sync.';
       }
     }
+    await _syncNotifications(requestPermissions: _goalPlan?.armed == true);
     _isReady = true;
     _startTicker();
     notifyListeners();
@@ -195,6 +201,7 @@ class GoalLockController extends ChangeNotifier {
     _commitments = const [];
     _noticeMessage = 'Preview mode is live. Link your Rocket Goals account anytime.';
     await _persist();
+    await _syncNotifications();
     _setBusy(false);
   }
 
@@ -299,6 +306,7 @@ class GoalLockController extends ChangeNotifier {
       _commitments = _seedPreviewMomentum(draft);
     }
     await _persist();
+    await _syncNotifications(requestPermissions: true);
     _setBusy(false);
   }
 
@@ -332,6 +340,7 @@ class GoalLockController extends ChangeNotifier {
     _errorMessage = null;
     await _syncLatest();
     await _persist();
+    await _syncNotifications(requestPermissions: true);
     notifyListeners();
   }
 
@@ -359,6 +368,7 @@ class GoalLockController extends ChangeNotifier {
     _errorMessage = null;
     await _syncLatest();
     await _persist();
+    await _syncNotifications();
     notifyListeners();
   }
 
@@ -376,6 +386,7 @@ class GoalLockController extends ChangeNotifier {
     );
     await _syncLatest();
     await _persist();
+    await _syncNotifications(requestPermissions: true);
     _noticeMessage = 'Schedule updated.';
     notifyListeners();
   }
@@ -392,6 +403,7 @@ class GoalLockController extends ChangeNotifier {
     _noticeMessage = null;
     _isReady = true;
     await _cache.clear();
+    await _syncNotifications();
     _startTicker();
     notifyListeners();
   }
@@ -454,6 +466,38 @@ class GoalLockController extends ChangeNotifier {
     }
   }
 
+  Future<void> _syncNotifications({bool requestPermissions = false}) async {
+    try {
+      if (requestPermissions) {
+        final granted = await _notifications.ensurePermissions();
+        if (!granted && _goalPlan?.armed == true) {
+          _noticeMessage ??=
+              'Enable notifications so Goal Lock can ring in the morning and at night.';
+        }
+      }
+
+      await _notifications.cancelAll();
+
+      final plan = _goalPlan;
+      if (plan == null || !plan.armed) {
+        return;
+      }
+
+      await _notifications.scheduleMorningLock(
+        goal: plan.goal,
+        morningLockMinutes: plan.morningLockMinutes,
+      );
+
+      final pending = _pendingReflectionReminder(plan);
+      if (pending != null) {
+        await _notifications.scheduleEveningReflection(pending);
+      }
+    } catch (error, stackTrace) {
+      debugPrint('Goal Lock notifications failed: $error');
+      debugPrintStack(stackTrace: stackTrace);
+    }
+  }
+
   List<DailyCommitment> _seedPreviewMomentum(GoalPlan plan) {
     final today = DateTime(_now().year, _now().month, _now().day);
     return <DailyCommitment>[
@@ -506,6 +550,33 @@ class GoalLockController extends ChangeNotifier {
     final morningAt = dateAtMinutes(today, plan.morningLockMinutes);
     final todayEntry = _commitmentForDate(dateKeyFromDate(today));
     return !_now().isBefore(morningAt) && todayEntry == null;
+  }
+
+  EveningReflectionReminder? _pendingReflectionReminder(GoalPlan plan) {
+    DailyCommitment? unresolved;
+    for (final entry in _sortedCommitmentsDesc()) {
+      if (entry.didComplete == null) {
+        unresolved = entry;
+        break;
+      }
+    }
+    if (unresolved == null) {
+      return null;
+    }
+
+    final dueAt = dateAtMinutes(
+      dateFromKey(unresolved.dateKey),
+      plan.reflectionLockMinutes,
+    );
+    if (!dueAt.isAfter(_now())) {
+      return null;
+    }
+
+    return EveningReflectionReminder(
+      goal: plan.goal,
+      oneThing: unresolved.oneThing,
+      when: dueAt,
+    );
   }
 
   Future<void> _runBridgeAction(Future<void> Function() action) async {
