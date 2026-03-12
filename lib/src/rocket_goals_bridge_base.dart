@@ -52,6 +52,18 @@ abstract class RocketGoalsBridge {
 
   Future<void> sendPasswordReset(String email);
 
+  Future<LinkedAccountBundle> refreshAccount({
+    required RemoteCredentials credentials,
+  });
+
+  Future<Uri> createGoalLockCheckoutSession({
+    required RemoteCredentials credentials,
+  });
+
+  Future<Uri> createGoalLockBillingPortalSession({
+    required RemoteCredentials credentials,
+  });
+
   Future<GoalPlan> upsertGoalPlan({
     required UserAccount account,
     required GoalPlan plan,

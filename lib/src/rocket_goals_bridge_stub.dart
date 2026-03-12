@@ -12,6 +12,33 @@ class _UnavailableBridge implements RocketGoalsBridge {
   }
 
   @override
+  Future<LinkedAccountBundle> refreshAccount({
+    required RemoteCredentials credentials,
+  }) async {
+    throw const BridgeException(
+      'Linked account flows are available on mobile and desktop builds. Use Preview on web.',
+    );
+  }
+
+  @override
+  Future<Uri> createGoalLockCheckoutSession({
+    required RemoteCredentials credentials,
+  }) async {
+    throw const BridgeException(
+      'Billing is available on mobile and desktop builds. Use a native build to subscribe.',
+    );
+  }
+
+  @override
+  Future<Uri> createGoalLockBillingPortalSession({
+    required RemoteCredentials credentials,
+  }) async {
+    throw const BridgeException(
+      'Billing is available on mobile and desktop builds. Use a native build to manage your subscription.',
+    );
+  }
+
+  @override
   Future<LinkedAccountBundle> signIn({
     required String email,
     required String password,

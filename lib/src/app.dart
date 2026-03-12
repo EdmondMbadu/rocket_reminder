@@ -1,7 +1,9 @@
 import 'dart:math' as math;
 import 'dart:ui';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import 'controller.dart';
 import 'models.dart';
@@ -239,6 +241,7 @@ class GoalLockRoot extends StatelessWidget {
                 child: switch (phase) {
                   LockPhase.loading => const _LoadingView(),
                   LockPhase.auth => _AuthView(controller: controller),
+                  LockPhase.billing => _BillingView(controller: controller),
                   LockPhase.onboarding => _OnboardingView(
                     controller: controller,
                   ),
@@ -434,19 +437,21 @@ class _AuthViewState extends State<_AuthView> {
                         )
                       : Text(isSignUp ? 'Create account' : 'Sign in'),
                 ),
-                const SizedBox(height: 12),
-                TextButton(
-                  onPressed: widget.controller.isBusy
-                      ? null
-                      : widget.controller.continueInPreview,
-                  child: Text(
-                    'Skip — preview without account',
-                    style: TextStyle(
-                      color: onBg.withValues(alpha: 0.45),
-                      fontWeight: FontWeight.w600,
+                if (!kReleaseMode) ...[
+                  const SizedBox(height: 12),
+                  TextButton(
+                    onPressed: widget.controller.isBusy
+                        ? null
+                        : widget.controller.continueInPreview,
+                    child: Text(
+                      'Skip — preview without account',
+                      style: TextStyle(
+                        color: onBg.withValues(alpha: 0.45),
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
-                ),
+                ],
                 if (!isSignUp)
                   TextButton(
                     onPressed: widget.controller.isBusy
@@ -469,6 +474,204 @@ class _AuthViewState extends State<_AuthView> {
       ),
     );
   }
+}
+
+// ---------------------------------------------------------------------------
+// Billing
+// ---------------------------------------------------------------------------
+
+class _BillingView extends StatelessWidget {
+  const _BillingView({required this.controller});
+
+  final GoalLockController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    final dark = _isDark(context);
+    final onBg = dark ? Colors.white : Colors.black;
+    final subscriptionStatus = controller.account?.goalLockSubscriptionStatus
+        ?.trim();
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(24, 40, 24, 40),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 460),
+          child: _GlassPanel(
+            padding: const EdgeInsets.all(28),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Center(child: _RocketBadge(size: 52)),
+                const SizedBox(height: 24),
+                Text(
+                  'Unlock Goal Lock',
+                  style: Theme.of(context).textTheme.headlineLarge,
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  'Goal Lock requires an active subscription before non-admin accounts can use the app.',
+                  style: Theme.of(context).textTheme.bodyLarge,
+                ),
+                const SizedBox(height: 24),
+                _GlassPanel(
+                  padding: const EdgeInsets.all(22),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '\$0.99',
+                        style: Theme.of(context).textTheme.displayMedium,
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        'First month',
+                        style: Theme.of(context).textTheme.titleLarge,
+                      ),
+                      const SizedBox(height: 14),
+                      Text(
+                        'Then \$5.00 per month after that.',
+                        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                          color: onBg.withValues(alpha: 0.72),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 20),
+                for (final line in const [
+                  'Daily lock screens stay tied to your Rocket Goals account.',
+                  'Your first invoice is 99 cents. Every renewal after that is 5 dollars monthly.',
+                  'Admins bypass billing automatically.',
+                ])
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Padding(
+                          padding: EdgeInsets.only(top: 2),
+                          child: Icon(
+                            Icons.check_circle,
+                            size: 18,
+                            color: _brandRed,
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            line,
+                            style: Theme.of(context).textTheme.bodyMedium,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                if (subscriptionStatus != null &&
+                    subscriptionStatus.isNotEmpty) ...[
+                  const SizedBox(height: 10),
+                  Text(
+                    'Current billing status: ${_formatBillingStatus(subscriptionStatus)}',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: onBg.withValues(alpha: 0.66),
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 24),
+                ElevatedButton(
+                  onPressed: controller.isBusy
+                      ? null
+                      : () async {
+                          final checkoutUri = await controller.startCheckout();
+                          if (checkoutUri == null || !context.mounted) {
+                            return;
+                          }
+                          final launched = await launchUrl(
+                            checkoutUri,
+                            mode: LaunchMode.externalApplication,
+                          );
+                          if (!launched && context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  'Could not open checkout. Please try again.',
+                                ),
+                              ),
+                            );
+                          }
+                        },
+                  child: controller.isBusy
+                      ? const SizedBox(
+                          width: 22,
+                          height: 22,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2.2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Text('Pay and unlock'),
+                ),
+                const SizedBox(height: 12),
+                OutlinedButton(
+                  onPressed: controller.isBusy
+                      ? null
+                      : () => controller.refreshLinkedAccount(),
+                  child: const Text('I completed payment'),
+                ),
+                if (controller.canManageBilling) ...[
+                  const SizedBox(height: 12),
+                  OutlinedButton(
+                    onPressed: controller.isBusy
+                        ? null
+                        : () async {
+                            final billingUri = await controller
+                                .openBillingPortal();
+                            if (billingUri == null || !context.mounted) {
+                              return;
+                            }
+                            final launched = await launchUrl(
+                              billingUri,
+                              mode: LaunchMode.externalApplication,
+                            );
+                            if (!launched && context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text(
+                                    'Could not open billing portal. Please try again.',
+                                  ),
+                                ),
+                              );
+                            }
+                          },
+                    child: const Text('Manage billing'),
+                  ),
+                ],
+                const SizedBox(height: 12),
+                TextButton(
+                  onPressed: controller.isBusy ? null : controller.signOut,
+                  child: Text(
+                    'Sign out',
+                    style: TextStyle(
+                      color: onBg.withValues(alpha: 0.42),
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+String _formatBillingStatus(String status) {
+  final normalized = status.trim().replaceAll('_', ' ').toLowerCase();
+  if (normalized.isEmpty) {
+    return 'unpaid';
+  }
+  return normalized[0].toUpperCase() + normalized.substring(1);
 }
 
 // ---------------------------------------------------------------------------
@@ -1113,6 +1316,46 @@ class _SettingsTabState extends State<_SettingsTab> {
                   widget.controller.account!.email,
                   style: Theme.of(context).textTheme.bodyMedium,
                 ),
+              ],
+              if (widget.controller.account?.mode == ExperienceMode.linked) ...[
+                const SizedBox(height: 10),
+                Text(
+                  widget.controller.account!.isAdmin
+                      ? 'Billing: Admin access'
+                      : 'Billing: ${widget.controller.account!.hasGoalLockAccess ? 'Active' : _formatBillingStatus(widget.controller.account!.goalLockSubscriptionStatus ?? 'unpaid')}',
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: dark ? _brandMist : _brandSmoke,
+                  ),
+                ),
+                if (!widget.controller.account!.isAdmin)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 12),
+                    child: OutlinedButton(
+                      onPressed: widget.controller.isBusy
+                          ? null
+                          : () async {
+                              final billingUri = await widget.controller
+                                  .openBillingPortal();
+                              if (billingUri == null || !context.mounted) {
+                                return;
+                              }
+                              final launched = await launchUrl(
+                                billingUri,
+                                mode: LaunchMode.externalApplication,
+                              );
+                              if (!launched && context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text(
+                                      'Could not open billing portal. Please try again.',
+                                    ),
+                                  ),
+                                );
+                              }
+                            },
+                      child: const Text('Manage billing'),
+                    ),
+                  ),
               ],
               const SizedBox(height: 16),
               OutlinedButton(

@@ -6,24 +6,26 @@ import 'models.dart';
 import 'rocket_goals_bridge_base.dart';
 
 class _FirebaseRestBridge implements RocketGoalsBridge {
-  static const String _firebaseApiKey =
-      String.fromEnvironment('ROCKET_GOALS_FIREBASE_API_KEY');
-  static const String _legacyApiKey =
-      String.fromEnvironment('ROCKET_GOALS_API_KEY');
+  static const String _firebaseApiKey = String.fromEnvironment(
+    'ROCKET_GOALS_FIREBASE_API_KEY',
+  );
+  static const String _legacyApiKey = String.fromEnvironment(
+    'ROCKET_GOALS_API_KEY',
+  );
   static const String _projectId = 'rocket-prompt';
+  static const String _functionsOrigin = String.fromEnvironment(
+    'ROCKET_GOALS_FUNCTIONS_ORIGIN',
+  );
 
   static String get _apiKey =>
       _firebaseApiKey.isNotEmpty ? _firebaseApiKey : _legacyApiKey;
 
   @override
   Future<void> sendPasswordReset(String email) async {
-    await _postJson(
-      _identityUri('accounts:sendOobCode'),
-      <String, dynamic>{
-        'requestType': 'PASSWORD_RESET',
-        'email': email.trim(),
-      },
-    );
+    await _postJson(_identityUri('accounts:sendOobCode'), <String, dynamic>{
+      'requestType': 'PASSWORD_RESET',
+      'email': email.trim(),
+    });
   }
 
   @override
@@ -64,25 +66,12 @@ class _FirebaseRestBridge implements RocketGoalsBridge {
       email: credentials.email,
     );
 
-    final importedGoal = await _loadLinkedGoal(
-      goalId: profile['myOneThingGoalId'] as String?,
-      defaultGoalLabel: profile['primaryGoal'] as String?,
-    );
-
-    return LinkedAccountBundle(
-      account: UserAccount(
-        userId: credentials.userId,
-        firstName: (profile['firstName'] as String?) ?? inferredNames.$1,
-        lastName: (profile['lastName'] as String?) ?? inferredNames.$2,
-        email: credentials.email,
-        mode: ExperienceMode.linked,
-        emailVerified: true,
-      ),
+    return _bundleFromProfile(
       credentials: credentials,
-      importedGoal: importedGoal,
-      notice: importedGoal == null
-          ? 'Rocket Goals account linked. Set one goal and arm tomorrow.'
-          : 'Rocket Goals account linked. We pulled your existing mission in.',
+      profile: profile,
+      emailVerified: true,
+      fallbackFirstName: inferredNames.$1,
+      fallbackLastName: inferredNames.$2,
     );
   }
 
@@ -120,16 +109,15 @@ class _FirebaseRestBridge implements RocketGoalsBridge {
         'lastName': lastName.trim(),
         'email': credentials.email,
         'createdAt': DateTime.now().toUtc(),
+        'goalLockAccessGranted': false,
+        'goalLockIntroOfferUsed': false,
       },
     );
 
-    await _postJson(
-      _identityUri('accounts:sendOobCode'),
-      <String, dynamic>{
-        'requestType': 'VERIFY_EMAIL',
-        'idToken': credentials.idToken,
-      },
-    );
+    await _postJson(_identityUri('accounts:sendOobCode'), <String, dynamic>{
+      'requestType': 'VERIFY_EMAIL',
+      'idToken': credentials.idToken,
+    });
 
     return LinkedAccountBundle(
       account: UserAccount(
@@ -139,12 +127,75 @@ class _FirebaseRestBridge implements RocketGoalsBridge {
         email: credentials.email,
         mode: ExperienceMode.linked,
         emailVerified: false,
+        goalLockAccessGranted: false,
       ),
       credentials: credentials,
       importedGoal: null,
       notice:
-          'Account created. We sent a verification email, but you can start shaping your ritual now.',
+          'Account created. Verify your email, then complete payment to unlock Goal Lock.',
     );
+  }
+
+  @override
+  Future<LinkedAccountBundle> refreshAccount({
+    required RemoteCredentials credentials,
+  }) async {
+    final accountInfo = await _lookupAccount(credentials.idToken);
+    final verified = accountInfo['emailVerified'] as bool? ?? false;
+    final displayName = accountInfo['displayName'] as String? ?? '';
+    final inferredNames = _splitName(displayName, credentials.email);
+    final profile = await _loadOrCreateProfile(
+      credentials: credentials,
+      firstName: inferredNames.$1,
+      lastName: inferredNames.$2,
+      email: credentials.email,
+    );
+
+    return _bundleFromProfile(
+      credentials: credentials,
+      profile: profile,
+      emailVerified: verified,
+      fallbackFirstName: inferredNames.$1,
+      fallbackLastName: inferredNames.$2,
+    );
+  }
+
+  @override
+  Future<Uri> createGoalLockCheckoutSession({
+    required RemoteCredentials credentials,
+  }) async {
+    final response = await _request(
+      method: 'POST',
+      uri: _functionUri('goalLockCreateCheckoutSession'),
+      bearerToken: credentials.idToken,
+      payload: const <String, dynamic>{},
+    );
+    final url = response?['url'] as String?;
+    if (url == null || url.trim().isEmpty) {
+      throw const BridgeException(
+        'No checkout URL came back from billing. Please try again.',
+      );
+    }
+    return Uri.parse(url);
+  }
+
+  @override
+  Future<Uri> createGoalLockBillingPortalSession({
+    required RemoteCredentials credentials,
+  }) async {
+    final response = await _request(
+      method: 'POST',
+      uri: _functionUri('goalLockCreateBillingPortalSession'),
+      bearerToken: credentials.idToken,
+      payload: const <String, dynamic>{},
+    );
+    final url = response?['url'] as String?;
+    if (url == null || url.trim().isEmpty) {
+      throw const BridgeException(
+        'No billing portal URL came back from billing. Please try again.',
+      );
+    }
+    return Uri.parse(url);
   }
 
   @override
@@ -181,7 +232,8 @@ class _FirebaseRestBridge implements RocketGoalsBridge {
           'lastUpdatedAt': DateTime.now().toUtc(),
           if (latestCommitment != null)
             'latestOneThing': latestCommitment.oneThing,
-          if (latestCommitment != null) 'latestOneThingDate': latestCommitment.dateKey,
+          if (latestCommitment != null)
+            'latestOneThingDate': latestCommitment.dateKey,
           if (latestCommitment?.didComplete != null)
             'latestReflectionComplete': latestCommitment!.didComplete,
         },
@@ -192,12 +244,55 @@ class _FirebaseRestBridge implements RocketGoalsBridge {
       collection: 'userProfiles',
       documentId: account.userId,
       idToken: credentials.idToken,
-      values: <String, dynamic>{
-        'myOneThingGoalId': goalId,
-      },
+      values: <String, dynamic>{'myOneThingGoalId': goalId},
     );
 
     return syncedPlan;
+  }
+
+  Future<LinkedAccountBundle> _bundleFromProfile({
+    required RemoteCredentials credentials,
+    required Map<String, dynamic> profile,
+    required bool emailVerified,
+    required String fallbackFirstName,
+    required String fallbackLastName,
+  }) async {
+    final importedGoal = await _loadLinkedGoal(
+      goalId: profile['myOneThingGoalId'] as String?,
+      defaultGoalLabel: profile['primaryGoal'] as String?,
+    );
+
+    final account = UserAccount(
+      userId: credentials.userId,
+      firstName: (profile['firstName'] as String?) ?? fallbackFirstName,
+      lastName: (profile['lastName'] as String?) ?? fallbackLastName,
+      email: credentials.email,
+      mode: ExperienceMode.linked,
+      emailVerified: emailVerified,
+      isAdmin: _isAdminProfile(profile),
+      goalLockAccessGranted: profile['goalLockAccessGranted'] as bool? ?? false,
+      goalLockSubscriptionStatus:
+          profile['goalLockSubscriptionStatus'] as String?,
+      goalLockSubscriptionExpiresAt: _asDateTime(
+        profile['goalLockSubscriptionExpiresAt'],
+      ),
+      goalLockSubscriptionCancelAt: _asDateTime(
+        profile['goalLockSubscriptionCancelAt'],
+      ),
+      goalLockIntroOfferUsed:
+          profile['goalLockIntroOfferUsed'] as bool? ?? false,
+    );
+
+    return LinkedAccountBundle(
+      account: account,
+      credentials: credentials,
+      importedGoal: importedGoal,
+      notice: account.hasGoalLockAccess
+          ? (importedGoal == null
+                ? 'Rocket Goals account linked. Set one goal and arm tomorrow.'
+                : 'Rocket Goals account linked. We pulled your existing mission in.')
+          : 'Complete payment to unlock Goal Lock.',
+    );
   }
 
   Future<Map<String, dynamic>> _lookupAccount(String idToken) async {
@@ -239,6 +334,8 @@ class _FirebaseRestBridge implements RocketGoalsBridge {
       'lastName': lastName,
       'email': email,
       'createdAt': DateTime.now().toUtc(),
+      'goalLockAccessGranted': false,
+      'goalLockIntroOfferUsed': false,
     };
 
     await _patchDocument(
@@ -280,7 +377,8 @@ class _FirebaseRestBridge implements RocketGoalsBridge {
     }
 
     final goalLock =
-        (document['goalLock'] as Map<String, dynamic>?) ?? const <String, dynamic>{};
+        (document['goalLock'] as Map<String, dynamic>?) ??
+        const <String, dynamic>{};
     final morningLock = normalizeMinutesOfDay(
       _asInt(goalLock['morningTimeMinutes']) ?? 390,
     );
@@ -374,6 +472,17 @@ class _FirebaseRestBridge implements RocketGoalsBridge {
     return baseUri.replace(query: query);
   }
 
+  Uri _functionUri(String name) {
+    if (_functionsOrigin.isNotEmpty) {
+      final base = _functionsOrigin.endsWith('/')
+          ? _functionsOrigin.substring(0, _functionsOrigin.length - 1)
+          : _functionsOrigin;
+      return Uri.parse('$base/$name');
+    }
+
+    return Uri.https('us-central1-$_projectId.cloudfunctions.net', '/$name');
+  }
+
   Future<Map<String, dynamic>> _postJson(
     Uri uri,
     Map<String, dynamic> payload,
@@ -448,10 +557,17 @@ class _FirebaseRestBridge implements RocketGoalsBridge {
       final root = decoded is Map<String, dynamic>
           ? decoded
           : (decoded as Map).cast<String, dynamic>();
-      final error =
-          root['error'] is Map<String, dynamic>
-              ? root['error'] as Map<String, dynamic>
-              : (root['error'] as Map?)?.cast<String, dynamic>();
+      final topLevelMessage = root['message'] as String?;
+      if (topLevelMessage != null && topLevelMessage.trim().isNotEmpty) {
+        return topLevelMessage;
+      }
+      final topLevelError = root['error'];
+      if (topLevelError is String && topLevelError.trim().isNotEmpty) {
+        return topLevelError;
+      }
+      final error = root['error'] is Map<String, dynamic>
+          ? root['error'] as Map<String, dynamic>
+          : (root['error'] as Map?)?.cast<String, dynamic>();
       final message = error?['message'] as String?;
       if (message == null) {
         return 'Something went wrong while talking to Rocket Goals.';
@@ -473,7 +589,8 @@ class _FirebaseRestBridge implements RocketGoalsBridge {
 
   Map<String, dynamic> _decodeDocument(Map<String, dynamic> document) {
     final fields =
-        (document['fields'] as Map<String, dynamic>?) ?? const <String, dynamic>{};
+        (document['fields'] as Map<String, dynamic>?) ??
+        const <String, dynamic>{};
     return fields.map(
       (key, value) => MapEntry(
         key,
@@ -487,7 +604,9 @@ class _FirebaseRestBridge implements RocketGoalsBridge {
   }
 
   Map<String, dynamic> _encodeFields(Map<String, dynamic> data) {
-    return data.map((key, value) => MapEntry(key, _encodeFirestoreValue(value)));
+    return data.map(
+      (key, value) => MapEntry(key, _encodeFirestoreValue(value)),
+    );
   }
 
   Map<String, dynamic> _encodeFirestoreValue(Object? value) {
@@ -507,7 +626,9 @@ class _FirebaseRestBridge implements RocketGoalsBridge {
       return <String, dynamic>{'doubleValue': value};
     }
     if (value is DateTime) {
-      return <String, dynamic>{'timestampValue': value.toUtc().toIso8601String()};
+      return <String, dynamic>{
+        'timestampValue': value.toUtc().toIso8601String(),
+      };
     }
     if (value is List) {
       return <String, dynamic>{
@@ -544,21 +665,25 @@ class _FirebaseRestBridge implements RocketGoalsBridge {
       return DateTime.tryParse(value['timestampValue'] as String? ?? '');
     }
     if (value.containsKey('arrayValue')) {
-      final raw = (value['arrayValue'] as Map<String, dynamic>?)?['values']
+      final raw =
+          (value['arrayValue'] as Map<String, dynamic>?)?['values']
               as List<dynamic>? ??
           const [];
       return raw
-          .map((entry) => _decodeFirestoreValue(
-                entry is Map<String, dynamic>
-                    ? entry
-                    : (entry as Map).cast<String, dynamic>(),
-              ))
+          .map(
+            (entry) => _decodeFirestoreValue(
+              entry is Map<String, dynamic>
+                  ? entry
+                  : (entry as Map).cast<String, dynamic>(),
+            ),
+          )
           .toList();
     }
     if (value.containsKey('mapValue')) {
       final rawFields =
           (value['mapValue'] as Map<String, dynamic>?)?['fields'] as Map?;
-      final cast = rawFields?.cast<String, dynamic>() ?? const <String, dynamic>{};
+      final cast =
+          rawFields?.cast<String, dynamic>() ?? const <String, dynamic>{};
       return cast.map(
         (key, entryValue) => MapEntry(
           key,
@@ -604,6 +729,20 @@ class _FirebaseRestBridge implements RocketGoalsBridge {
       return int.tryParse(value);
     }
     return null;
+  }
+
+  DateTime? _asDateTime(Object? value) {
+    if (value is DateTime) {
+      return value;
+    }
+    if (value is String) {
+      return DateTime.tryParse(value);
+    }
+    return null;
+  }
+
+  bool _isAdminProfile(Map<String, dynamic> profile) {
+    return profile['admin'] == true || profile['role'] == 'admin';
   }
 }
 

@@ -15,6 +15,7 @@ enum AppTab { today, history, settings }
 enum LockPhase {
   loading,
   auth,
+  billing,
   onboarding,
   unlocked,
   morningLocked,
@@ -64,6 +65,15 @@ class GoalLockController extends ChangeNotifier {
   bool get hasLinkedSync => _remoteCredentials != null;
   bool get reconnectNeeded =>
       _account?.mode == ExperienceMode.linked && _remoteCredentials == null;
+  bool get requiresBilling =>
+      _account?.mode == ExperienceMode.linked &&
+      !(_account?.hasGoalLockAccess ?? false);
+  bool get isAdminUser => _account?.isAdmin ?? false;
+  bool get canManageBilling =>
+      _account?.mode == ExperienceMode.linked &&
+      !isAdminUser &&
+      ((_account?.goalLockSubscriptionStatus?.isNotEmpty ?? false) ||
+          (_account?.goalLockAccessGranted ?? false));
 
   String get goalLabel => _goalPlan?.goal ?? '';
 
@@ -77,6 +87,9 @@ class GoalLockController extends ChangeNotifier {
     }
     if (_account == null) {
       return LockPhase.auth;
+    }
+    if (requiresBilling) {
+      return LockPhase.billing;
     }
     if (_goalPlan == null || !_goalPlan!.armed) {
       return LockPhase.onboarding;
@@ -191,6 +204,9 @@ class GoalLockController extends ChangeNotifier {
     if (!_isReady) {
       return;
     }
+    if (_account?.mode == ExperienceMode.linked && _remoteCredentials != null) {
+      unawaited(refreshLinkedAccount(silent: true));
+    }
     notifyListeners();
   }
 
@@ -276,6 +292,78 @@ class GoalLockController extends ChangeNotifier {
       _noticeMessage =
           'Password reset link sent. Check the inbox for your Rocket Goals account.';
     });
+  }
+
+  Future<void> refreshLinkedAccount({bool silent = false}) async {
+    if (_account?.mode != ExperienceMode.linked || _remoteCredentials == null) {
+      return;
+    }
+
+    if (!silent) {
+      _setBusy(true);
+      _clearMessages();
+    }
+
+    try {
+      final bundle = await _bridge.refreshAccount(
+        credentials: _remoteCredentials!,
+      );
+      _account = bundle.account;
+      _goalPlan = bundle.importedGoal ?? _goalPlan;
+      if (!silent) {
+        _noticeMessage = bundle.notice;
+      }
+      await _persist();
+      notifyListeners();
+    } on BridgeException catch (error) {
+      if (!silent) {
+        _errorMessage = error.message;
+      }
+    } catch (_) {
+      if (!silent) {
+        _errorMessage =
+            'We could not refresh your billing status right now. Try again in a moment.';
+      }
+    } finally {
+      if (!silent) {
+        _setBusy(false);
+      }
+    }
+  }
+
+  Future<Uri?> startCheckout() async {
+    if (_remoteCredentials == null) {
+      _errorMessage = 'Sign in again to start checkout.';
+      notifyListeners();
+      return null;
+    }
+
+    Uri? checkoutUri;
+    await _runBridgeAction(() async {
+      checkoutUri = await _bridge.createGoalLockCheckoutSession(
+        credentials: _remoteCredentials!,
+      );
+      _noticeMessage =
+          'Checkout opened in your browser. Return here after payment and we will refresh access.';
+    });
+    return checkoutUri;
+  }
+
+  Future<Uri?> openBillingPortal() async {
+    if (_remoteCredentials == null) {
+      _errorMessage = 'Sign in again to manage billing.';
+      notifyListeners();
+      return null;
+    }
+
+    Uri? billingUri;
+    await _runBridgeAction(() async {
+      billingUri = await _bridge.createGoalLockBillingPortalSession(
+        credentials: _remoteCredentials!,
+      );
+      _noticeMessage = 'Billing portal opened in your browser.';
+    });
+    return billingUri;
   }
 
   Future<void> armGoalLock({

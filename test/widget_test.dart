@@ -277,6 +277,60 @@ void main() {
     expect(controller.goalLabel, 'Write my book');
     expect(controller.goalPlan?.goal, 'Write my book');
   });
+
+  test(
+    'linked users without billing access are gated behind the billing phase',
+    () async {
+      final controller = GoalLockController(
+        cache: _MemoryCache(
+          seed: GoalLockSnapshot(
+            account: const UserAccount(
+              userId: 'linked-user',
+              firstName: 'Ava',
+              lastName: 'Jordan',
+              email: 'ava@rocket.test',
+              mode: ExperienceMode.linked,
+              emailVerified: true,
+              goalLockAccessGranted: false,
+            ),
+            goalPlan: null,
+            commitments: const [],
+          ).toJson(),
+        ),
+        bridge: const _FakeBridge(),
+      );
+
+      await controller.initialize();
+
+      expect(controller.lockPhase, LockPhase.billing);
+    },
+  );
+
+  test('admin accounts bypass billing even without a subscription', () async {
+    final controller = GoalLockController(
+      cache: _MemoryCache(
+        seed: GoalLockSnapshot(
+          account: const UserAccount(
+            userId: 'admin-user',
+            firstName: 'Edmond',
+            lastName: 'Admin',
+            email: 'admin@rocket.test',
+            mode: ExperienceMode.linked,
+            emailVerified: true,
+            isAdmin: true,
+            goalLockAccessGranted: false,
+          ),
+          goalPlan: null,
+          commitments: const [],
+        ).toJson(),
+      ),
+      bridge: const _FakeBridge(),
+    );
+
+    await controller.initialize();
+
+    expect(controller.lockPhase, LockPhase.onboarding);
+  });
 }
 
 class _MemoryCache implements LocalCache {
@@ -303,6 +357,27 @@ class _FakeBridge implements RocketGoalsBridge {
 
   @override
   Future<void> sendPasswordReset(String email) async {}
+
+  @override
+  Future<Uri> createGoalLockBillingPortalSession({
+    required RemoteCredentials credentials,
+  }) async {
+    return Uri.parse('https://example.com/billing');
+  }
+
+  @override
+  Future<Uri> createGoalLockCheckoutSession({
+    required RemoteCredentials credentials,
+  }) async {
+    return Uri.parse('https://example.com/checkout');
+  }
+
+  @override
+  Future<LinkedAccountBundle> refreshAccount({
+    required RemoteCredentials credentials,
+  }) {
+    throw UnimplementedError();
+  }
 
   @override
   Future<LinkedAccountBundle> signIn({
@@ -349,6 +424,7 @@ class _ExplodingBridge extends _FakeBridge {
         email: email,
         mode: ExperienceMode.linked,
         emailVerified: true,
+        goalLockAccessGranted: true,
       ),
       credentials: RemoteCredentials(
         userId: 'linked-user',

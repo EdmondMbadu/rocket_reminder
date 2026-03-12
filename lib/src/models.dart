@@ -8,6 +8,12 @@ class UserAccount {
     required this.email,
     required this.mode,
     required this.emailVerified,
+    this.isAdmin = false,
+    this.goalLockAccessGranted = false,
+    this.goalLockSubscriptionStatus,
+    this.goalLockSubscriptionExpiresAt,
+    this.goalLockSubscriptionCancelAt,
+    this.goalLockIntroOfferUsed = false,
   });
 
   final String userId;
@@ -16,10 +22,39 @@ class UserAccount {
   final String email;
   final ExperienceMode mode;
   final bool emailVerified;
+  final bool isAdmin;
+  final bool goalLockAccessGranted;
+  final String? goalLockSubscriptionStatus;
+  final DateTime? goalLockSubscriptionExpiresAt;
+  final DateTime? goalLockSubscriptionCancelAt;
+  final bool goalLockIntroOfferUsed;
 
   String get displayName {
     final combined = '$firstName $lastName'.trim();
     return combined.isEmpty ? email : combined;
+  }
+
+  bool get hasGoalLockAccess {
+    if (mode == ExperienceMode.preview) {
+      return true;
+    }
+    if (isAdmin || goalLockAccessGranted) {
+      return true;
+    }
+
+    final normalizedStatus = goalLockSubscriptionStatus?.trim().toLowerCase();
+    if (normalizedStatus == 'active' ||
+        normalizedStatus == 'trialing' ||
+        normalizedStatus == 'canceling') {
+      return true;
+    }
+
+    final expiresAt = goalLockSubscriptionExpiresAt;
+    if (expiresAt != null && expiresAt.isAfter(DateTime.now())) {
+      return true;
+    }
+
+    return false;
   }
 
   UserAccount copyWith({
@@ -29,6 +64,12 @@ class UserAccount {
     String? email,
     ExperienceMode? mode,
     bool? emailVerified,
+    bool? isAdmin,
+    bool? goalLockAccessGranted,
+    Object? goalLockSubscriptionStatus = _unset,
+    Object? goalLockSubscriptionExpiresAt = _unset,
+    Object? goalLockSubscriptionCancelAt = _unset,
+    bool? goalLockIntroOfferUsed,
   }) {
     return UserAccount(
       userId: userId ?? this.userId,
@@ -37,6 +78,22 @@ class UserAccount {
       email: email ?? this.email,
       mode: mode ?? this.mode,
       emailVerified: emailVerified ?? this.emailVerified,
+      isAdmin: isAdmin ?? this.isAdmin,
+      goalLockAccessGranted:
+          goalLockAccessGranted ?? this.goalLockAccessGranted,
+      goalLockSubscriptionStatus: identical(goalLockSubscriptionStatus, _unset)
+          ? this.goalLockSubscriptionStatus
+          : goalLockSubscriptionStatus as String?,
+      goalLockSubscriptionExpiresAt:
+          identical(goalLockSubscriptionExpiresAt, _unset)
+          ? this.goalLockSubscriptionExpiresAt
+          : goalLockSubscriptionExpiresAt as DateTime?,
+      goalLockSubscriptionCancelAt:
+          identical(goalLockSubscriptionCancelAt, _unset)
+          ? this.goalLockSubscriptionCancelAt
+          : goalLockSubscriptionCancelAt as DateTime?,
+      goalLockIntroOfferUsed:
+          goalLockIntroOfferUsed ?? this.goalLockIntroOfferUsed,
     );
   }
 
@@ -48,6 +105,14 @@ class UserAccount {
       'email': email,
       'mode': mode.name,
       'emailVerified': emailVerified,
+      'isAdmin': isAdmin,
+      'goalLockAccessGranted': goalLockAccessGranted,
+      'goalLockSubscriptionStatus': goalLockSubscriptionStatus,
+      'goalLockSubscriptionExpiresAt': goalLockSubscriptionExpiresAt
+          ?.toIso8601String(),
+      'goalLockSubscriptionCancelAt': goalLockSubscriptionCancelAt
+          ?.toIso8601String(),
+      'goalLockIntroOfferUsed': goalLockIntroOfferUsed,
     };
   }
 
@@ -61,6 +126,16 @@ class UserAccount {
         json['mode'] as String? ?? ExperienceMode.preview.name,
       ),
       emailVerified: json['emailVerified'] as bool? ?? false,
+      isAdmin: json['isAdmin'] as bool? ?? false,
+      goalLockAccessGranted: json['goalLockAccessGranted'] as bool? ?? false,
+      goalLockSubscriptionStatus: json['goalLockSubscriptionStatus'] as String?,
+      goalLockSubscriptionExpiresAt: _coerceDateTime(
+        json['goalLockSubscriptionExpiresAt'],
+      ),
+      goalLockSubscriptionCancelAt: _coerceDateTime(
+        json['goalLockSubscriptionCancelAt'],
+      ),
+      goalLockIntroOfferUsed: json['goalLockIntroOfferUsed'] as bool? ?? false,
     );
   }
 }
@@ -310,6 +385,16 @@ int? _coerceInt(Object? value) {
   }
   if (value is String) {
     return int.tryParse(value);
+  }
+  return null;
+}
+
+DateTime? _coerceDateTime(Object? value) {
+  if (value is DateTime) {
+    return value;
+  }
+  if (value is String) {
+    return DateTime.tryParse(value);
   }
   return null;
 }
