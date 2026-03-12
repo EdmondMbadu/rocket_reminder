@@ -100,10 +100,7 @@ ThemeData _buildTheme(Brightness brightness) {
         letterSpacing: -1.2,
         height: 1,
       ),
-      displaySmall: TextStyle(
-        color: textPrimary,
-        fontWeight: FontWeight.w800,
-      ),
+      displaySmall: TextStyle(color: textPrimary, fontWeight: FontWeight.w800),
       headlineLarge: TextStyle(
         color: textPrimary,
         fontWeight: FontWeight.w800,
@@ -114,14 +111,8 @@ ThemeData _buildTheme(Brightness brightness) {
         fontWeight: FontWeight.w700,
         letterSpacing: -0.6,
       ),
-      titleLarge: TextStyle(
-        color: textPrimary,
-        fontWeight: FontWeight.w700,
-      ),
-      titleMedium: TextStyle(
-        color: textPrimary,
-        fontWeight: FontWeight.w700,
-      ),
+      titleLarge: TextStyle(color: textPrimary, fontWeight: FontWeight.w700),
+      titleMedium: TextStyle(color: textPrimary, fontWeight: FontWeight.w700),
       bodyLarge: TextStyle(
         color: textSecondary,
         fontWeight: FontWeight.w500,
@@ -132,10 +123,7 @@ ThemeData _buildTheme(Brightness brightness) {
         fontWeight: FontWeight.w500,
         height: 1.35,
       ),
-      bodySmall: TextStyle(
-        color: textSecondary,
-        fontWeight: FontWeight.w600,
-      ),
+      bodySmall: TextStyle(color: textSecondary, fontWeight: FontWeight.w600),
       labelLarge: TextStyle(
         color: textPrimary,
         fontWeight: FontWeight.w700,
@@ -159,8 +147,9 @@ ThemeData _buildTheme(Brightness brightness) {
         borderSide: const BorderSide(color: _brandRed, width: 1.5),
       ),
       hintStyle: TextStyle(color: overlay.withValues(alpha: 0.32)),
-      labelStyle:
-          TextStyle(color: overlay.withValues(alpha: isDark ? 0.75 : 0.55)),
+      labelStyle: TextStyle(
+        color: overlay.withValues(alpha: isDark ? 0.75 : 0.55),
+      ),
     ),
     elevatedButtonTheme: ElevatedButtonThemeData(
       style: ElevatedButton.styleFrom(
@@ -173,20 +162,17 @@ ThemeData _buildTheme(Brightness brightness) {
           fontWeight: FontWeight.w800,
           letterSpacing: 0.3,
         ),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(24),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
       ),
     ),
     outlinedButtonTheme: OutlinedButtonThemeData(
       style: OutlinedButton.styleFrom(
         foregroundColor: textPrimary,
         side: BorderSide(
-            color: overlay.withValues(alpha: isDark ? 0.18 : 0.15)),
-        minimumSize: const Size.fromHeight(56),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(24),
+          color: overlay.withValues(alpha: isDark ? 0.18 : 0.15),
         ),
+        minimumSize: const Size.fromHeight(56),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
       ),
     ),
     chipTheme: ChipThemeData(
@@ -218,11 +204,7 @@ class GoalLockRoot extends StatelessWidget {
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: dark
-                ? const <Color>[
-                    _brandBlack,
-                    Color(0xFF160708),
-                    _brandBlackSoft,
-                  ]
+                ? const <Color>[_brandBlack, Color(0xFF160708), _brandBlackSoft]
                 : const <Color>[
                     Color(0xFFFCFAF7),
                     Color(0xFFF7F3EE),
@@ -239,14 +221,17 @@ class GoalLockRoot extends StatelessWidget {
                 child: switch (phase) {
                   LockPhase.loading => const _LoadingView(),
                   LockPhase.auth => _AuthView(controller: controller),
-                  LockPhase.onboarding =>
-                    _OnboardingView(controller: controller),
+                  LockPhase.onboarding => _OnboardingView(
+                    controller: controller,
+                  ),
                   _ => _ActiveView(controller: controller),
                 },
               ),
             ),
             if (phase == LockPhase.morningLocked)
               _MorningLockOverlay(controller: controller),
+            if (phase == LockPhase.noonLocked)
+              _MiddayCheckOverlay(controller: controller),
             if (phase == LockPhase.eveningLocked)
               _EveningReflectionOverlay(controller: controller),
             if (controller.errorMessage != null ||
@@ -354,7 +339,7 @@ class _AuthViewState extends State<_AuthView> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'One goal. One daily question. That\'s it.',
+                  'You tell us your goal, we make sure you do it!',
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.bodyMedium,
                 ),
@@ -371,8 +356,9 @@ class _AuthViewState extends State<_AuthView> {
                         child: TextField(
                           controller: _firstNameController,
                           textCapitalization: TextCapitalization.words,
-                          decoration:
-                              const InputDecoration(hintText: 'First name'),
+                          decoration: const InputDecoration(
+                            hintText: 'First name',
+                          ),
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -380,8 +366,9 @@ class _AuthViewState extends State<_AuthView> {
                         child: TextField(
                           controller: _lastNameController,
                           textCapitalization: TextCapitalization.words,
-                          decoration:
-                              const InputDecoration(hintText: 'Last name'),
+                          decoration: const InputDecoration(
+                            hintText: 'Last name',
+                          ),
                         ),
                       ),
                     ],
@@ -446,8 +433,9 @@ class _AuthViewState extends State<_AuthView> {
                   TextButton(
                     onPressed: widget.controller.isBusy
                         ? null
-                        : () => widget.controller
-                            .requestPasswordReset(_emailController.text),
+                        : () => widget.controller.requestPasswordReset(
+                            _emailController.text,
+                          ),
                     child: Text(
                       'Forgot password?',
                       style: TextStyle(
@@ -486,12 +474,13 @@ class _OnboardingViewState extends State<_OnboardingView> {
   @override
   void initState() {
     super.initState();
-    _goalController =
-        TextEditingController(text: widget.controller.goalPlan?.goal ?? '');
+    _goalController = TextEditingController(
+      text: widget.controller.goalPlan?.goal ?? '',
+    );
     _morningLockMinutes =
         widget.controller.goalPlan?.morningLockMinutes ?? 6 * 60 + 30;
-    _focusWindowHours =
-        (widget.controller.goalPlan?.focusWindowHours ?? 14).toDouble();
+    _focusWindowHours = (widget.controller.goalPlan?.focusWindowHours ?? 14)
+        .toDouble();
   }
 
   @override
@@ -510,8 +499,9 @@ class _OnboardingViewState extends State<_OnboardingView> {
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
-            colorScheme:
-                Theme.of(context).colorScheme.copyWith(primary: _brandRed),
+            colorScheme: Theme.of(
+              context,
+            ).colorScheme.copyWith(primary: _brandRed),
           ),
           child: child!,
         );
@@ -551,8 +541,7 @@ class _OnboardingViewState extends State<_OnboardingView> {
                   controller: _goalController,
                   maxLines: 1,
                   textCapitalization: TextCapitalization.sentences,
-                  decoration:
-                      const InputDecoration(hintText: 'Write my book'),
+                  decoration: const InputDecoration(hintText: 'Write my book'),
                 ),
                 const SizedBox(height: 14),
                 Wrap(
@@ -594,8 +583,7 @@ class _OnboardingViewState extends State<_OnboardingView> {
                 SliderTheme(
                   data: SliderTheme.of(context).copyWith(
                     activeTrackColor: _brandRed,
-                    inactiveTrackColor:
-                        overlay.withValues(alpha: 0.08),
+                    inactiveTrackColor: overlay.withValues(alpha: 0.08),
                     thumbColor: dark ? _brandWhite : _brandBlack,
                     overlayColor: const Color(0x33DC2626),
                   ),
@@ -605,8 +593,7 @@ class _OnboardingViewState extends State<_OnboardingView> {
                     max: 16,
                     divisions: 8,
                     label: '${_focusWindowHours.round()}h',
-                    onChanged: (v) =>
-                        setState(() => _focusWindowHours = v),
+                    onChanged: (v) => setState(() => _focusWindowHours = v),
                   ),
                 ),
                 const SizedBox(height: 20),
@@ -614,10 +601,10 @@ class _OnboardingViewState extends State<_OnboardingView> {
                   onPressed: widget.controller.isBusy
                       ? null
                       : () => widget.controller.armGoalLock(
-                            goal: _goalController.text,
-                            morningLockMinutes: _morningLockMinutes,
-                            focusWindowHours: _focusWindowHours.round(),
-                          ),
+                          goal: _goalController.text,
+                          morningLockMinutes: _morningLockMinutes,
+                          focusWindowHours: _focusWindowHours.round(),
+                        ),
                   child: widget.controller.isBusy
                       ? const SizedBox(
                           width: 20,
@@ -667,17 +654,15 @@ class _ActiveView extends StatelessWidget {
                   Text(
                     'Rocket Reminder',
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          color: onBg.withValues(alpha: 0.5),
-                          fontWeight: FontWeight.w800,
-                        ),
+                      color: onBg.withValues(alpha: 0.5),
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
                   const Spacer(),
                   GestureDetector(
                     onTap: controller.toggleTheme,
                     child: Icon(
-                      dark
-                          ? Icons.light_mode_rounded
-                          : Icons.dark_mode_rounded,
+                      dark ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
                       color: onBg.withValues(alpha: 0.4),
                       size: 22,
                     ),
@@ -725,10 +710,9 @@ class _EditableGoalHeader extends StatelessWidget {
         children: [
           Text(
             controller.goalLabel,
-            style: Theme.of(context)
-                .textTheme
-                .displayMedium
-                ?.copyWith(fontSize: 36),
+            style: Theme.of(
+              context,
+            ).textTheme.displayMedium?.copyWith(fontSize: 36),
           ),
           const SizedBox(height: 8),
           Row(
@@ -743,10 +727,10 @@ class _EditableGoalHeader extends StatelessWidget {
               Text(
                 'Tap title to edit in settings',
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: overlay.withValues(alpha: 0.42),
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 0.4,
-                    ),
+                  color: overlay.withValues(alpha: 0.42),
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.4,
+                ),
               ),
             ],
           ),
@@ -780,8 +764,11 @@ class _TodayTab extends StatelessWidget {
           child: today == null
               ? Column(
                   children: [
-                    Icon(Icons.lock_outline_rounded,
-                        size: 36, color: _brandSmoke),
+                    Icon(
+                      Icons.lock_outline_rounded,
+                      size: 36,
+                      color: _brandSmoke,
+                    ),
                     const SizedBox(height: 14),
                     Text(
                       'Waiting for morning lock',
@@ -801,12 +788,11 @@ class _TodayTab extends StatelessWidget {
                   children: [
                     Text(
                       'TODAY\'S ONE THING',
-                      style:
-                          Theme.of(context).textTheme.bodySmall?.copyWith(
-                                color: onBg.withValues(alpha: 0.45),
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: 1.8,
-                              ),
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: onBg.withValues(alpha: 0.45),
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 1.8,
+                      ),
                     ),
                     const SizedBox(height: 12),
                     Text(
@@ -818,6 +804,15 @@ class _TodayTab extends StatelessWidget {
                       controller.nextLockSummary(),
                       style: Theme.of(context).textTheme.bodyMedium,
                     ),
+                    if (today.middayOnTrack != null) ...[
+                      const SizedBox(height: 14),
+                      _StatusTag(
+                        label: today.middayOnTrack!
+                            ? 'Noon: On track'
+                            : 'Noon: Off track',
+                        positive: today.middayOnTrack!,
+                      ),
+                    ],
                   ],
                 ),
         ),
@@ -854,10 +849,10 @@ class _TodayTab extends StatelessWidget {
                 Text(
                   'RECENT',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        letterSpacing: 2,
-                        color: onBg.withValues(alpha: 0.45),
-                        fontWeight: FontWeight.w800,
-                      ),
+                    letterSpacing: 2,
+                    color: onBg.withValues(alpha: 0.45),
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
                 const SizedBox(height: 14),
                 for (final entry in controller.recentEntries(count: 3))
@@ -940,8 +935,8 @@ class _SettingsTabState extends State<_SettingsTab> {
     );
     _morningLockMinutes =
         widget.controller.goalPlan?.morningLockMinutes ?? 6 * 60 + 30;
-    _focusWindowHours =
-        (widget.controller.goalPlan?.focusWindowHours ?? 14).toDouble();
+    _focusWindowHours = (widget.controller.goalPlan?.focusWindowHours ?? 14)
+        .toDouble();
   }
 
   @override
@@ -988,10 +983,7 @@ class _SettingsTabState extends State<_SettingsTab> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'Goal',
-                style: Theme.of(context).textTheme.titleLarge,
-              ),
+              Text('Goal', style: Theme.of(context).textTheme.titleLarge),
               const SizedBox(height: 16),
               TextField(
                 controller: _goalController,
@@ -1012,29 +1004,26 @@ class _SettingsTabState extends State<_SettingsTab> {
                 child: const Text('Save goal'),
               ),
               const SizedBox(height: 24),
-              Text(
-                'Schedule',
-                style: Theme.of(context).textTheme.titleLarge,
-              ),
+              Text('Schedule', style: Theme.of(context).textTheme.titleLarge),
               const SizedBox(height: 16),
               OutlinedButton.icon(
                 onPressed: _pickMorningTime,
                 icon: const Icon(Icons.alarm_rounded, size: 20),
                 label: Text(
-                    'Morning lock: ${formatMinutes(_morningLockMinutes)}'),
+                  'Morning lock: ${formatMinutes(_morningLockMinutes)}',
+                ),
               ),
               const SizedBox(height: 18),
               Text(
                 'Focus window: ${_focusWindowHours.round()} hours',
                 style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                      color: dark ? _brandWhite : _brandBlack,
-                    ),
+                  color: dark ? _brandWhite : _brandBlack,
+                ),
               ),
               SliderTheme(
                 data: SliderTheme.of(context).copyWith(
                   activeTrackColor: _brandRed,
-                  inactiveTrackColor:
-                      overlay.withValues(alpha: 0.08),
+                  inactiveTrackColor: overlay.withValues(alpha: 0.08),
                   thumbColor: dark ? _brandWhite : _brandBlack,
                   overlayColor: const Color(0x33DC2626),
                 ),
@@ -1044,8 +1033,7 @@ class _SettingsTabState extends State<_SettingsTab> {
                   divisions: 8,
                   value: _focusWindowHours,
                   label: '${_focusWindowHours.round()}h',
-                  onChanged: (v) =>
-                      setState(() => _focusWindowHours = v),
+                  onChanged: (v) => setState(() => _focusWindowHours = v),
                 ),
               ),
               const SizedBox(height: 10),
@@ -1053,9 +1041,9 @@ class _SettingsTabState extends State<_SettingsTab> {
                 onPressed: widget.controller.isBusy
                     ? null
                     : () => widget.controller.updateSchedule(
-                          morningLockMinutes: _morningLockMinutes,
-                          focusWindowHours: _focusWindowHours.round(),
-                        ),
+                        morningLockMinutes: _morningLockMinutes,
+                        focusWindowHours: _focusWindowHours.round(),
+                      ),
                 child: const Text('Save schedule'),
               ),
             ],
@@ -1092,17 +1080,14 @@ class _SettingsTabState extends State<_SettingsTab> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'Account',
-                style: Theme.of(context).textTheme.titleLarge,
-              ),
+              Text('Account', style: Theme.of(context).textTheme.titleLarge),
               const SizedBox(height: 12),
               Text(
                 widget.controller.account?.displayName ?? '',
                 style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                      color: dark ? _brandWhite : _brandBlack,
-                      fontWeight: FontWeight.w700,
-                    ),
+                  color: dark ? _brandWhite : _brandBlack,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
               if ((widget.controller.account?.email ?? '').isNotEmpty) ...[
                 const SizedBox(height: 4),
@@ -1182,9 +1167,74 @@ class _MorningLockOverlayState extends State<_MorningLockOverlay> {
             ElevatedButton(
               onPressed: widget.controller.isBusy
                   ? null
-                  : () => widget.controller
-                      .submitMorningOneThing(_answerController.text),
+                  : () => widget.controller.submitMorningOneThing(
+                      _answerController.text,
+                    ),
               child: const Text('Unlock'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Midday Check Overlay
+// ---------------------------------------------------------------------------
+
+class _MiddayCheckOverlay extends StatelessWidget {
+  const _MiddayCheckOverlay({required this.controller});
+
+  final GoalLockController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    final pending = controller.pendingMiddayCheck;
+    return _LockBackdrop(
+      child: _GlassPanel(
+        width: 480,
+        padding: const EdgeInsets.all(28),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Text(
+              'Are you on track to do your one thing?',
+              textAlign: TextAlign.center,
+              style: Theme.of(
+                context,
+              ).textTheme.displaySmall?.copyWith(fontSize: 34),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              pending?.oneThing ?? '',
+              textAlign: TextAlign.center,
+              style: Theme.of(
+                context,
+              ).textTheme.titleLarge?.copyWith(color: _brandRed),
+            ),
+            const SizedBox(height: 28),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: controller.isBusy
+                        ? null
+                        : () => controller.submitMiddayCheck(false),
+                    child: const Text('No'),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: controller.isBusy
+                        ? null
+                        : () => controller.submitMiddayCheck(true),
+                    child: const Text('Yes'),
+                  ),
+                ),
+              ],
             ),
           ],
         ),
@@ -1215,18 +1265,17 @@ class _EveningReflectionOverlay extends StatelessWidget {
           children: [
             Text(
               'Did you do it?',
-              style: Theme.of(context)
-                  .textTheme
-                  .displayMedium
-                  ?.copyWith(fontSize: 40),
+              style: Theme.of(
+                context,
+              ).textTheme.displayMedium?.copyWith(fontSize: 40),
             ),
             const SizedBox(height: 16),
             Text(
               pending?.oneThing ?? '',
               textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    color: _brandRed,
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.titleLarge?.copyWith(color: _brandRed),
             ),
             const SizedBox(height: 28),
             Row(
@@ -1279,38 +1328,34 @@ class _BannerToast extends StatelessWidget {
         child: BackdropFilter(
           filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
           child: Container(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
             decoration: BoxDecoration(
               color: isError
                   ? const Color(0x88DC2626)
                   : (dark
-                      ? Colors.white.withValues(alpha: 0.16)
-                      : Colors.black.withValues(alpha: 0.06)),
+                        ? Colors.white.withValues(alpha: 0.16)
+                        : Colors.black.withValues(alpha: 0.06)),
               borderRadius: BorderRadius.circular(22),
               border: Border.all(
-                color: (dark ? Colors.white : Colors.black)
-                    .withValues(alpha: 0.12),
+                color: (dark ? Colors.white : Colors.black).withValues(
+                  alpha: 0.12,
+                ),
               ),
             ),
             child: Row(
               children: [
                 Icon(
-                  isError
-                      ? Icons.warning_rounded
-                      : Icons.check_circle_rounded,
+                  isError ? Icons.warning_rounded : Icons.check_circle_rounded,
                   color: fg,
                 ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
-                    controller.errorMessage ??
-                        controller.noticeMessage ??
-                        '',
+                    controller.errorMessage ?? controller.noticeMessage ?? '',
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: fg,
-                          fontWeight: FontWeight.w700,
-                        ),
+                      color: fg,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ),
                 IconButton(
@@ -1367,8 +1412,7 @@ class _GlassPanel extends StatelessWidget {
               ),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black
-                      .withValues(alpha: dark ? 0.18 : 0.06),
+                  color: Colors.black.withValues(alpha: dark ? 0.18 : 0.06),
                   blurRadius: dark ? 30 : 16,
                   offset: Offset(0, dark ? 18 : 8),
                 ),
@@ -1447,7 +1491,7 @@ class _RocketBadge extends StatelessWidget {
     return SizedBox(
       height: size,
       child: Image.asset(
-        'assets/branding/rocket-goals-home-icon.png',
+        'assets/branding/rocket-goals-web-logo.png',
         fit: BoxFit.contain,
         filterQuality: FilterQuality.high,
       ),
@@ -1469,8 +1513,9 @@ class _ModeSwitch extends StatelessWidget {
       decoration: BoxDecoration(
         color: overlay.withValues(alpha: dark ? 0.05 : 0.04),
         borderRadius: BorderRadius.circular(22),
-        border:
-            Border.all(color: overlay.withValues(alpha: dark ? 0.08 : 0.06)),
+        border: Border.all(
+          color: overlay.withValues(alpha: dark ? 0.08 : 0.06),
+        ),
       ),
       padding: const EdgeInsets.all(5),
       child: Row(
@@ -1523,11 +1568,10 @@ class _SwitchPill extends StatelessWidget {
           child: Text(
             label,
             style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                  color: selected
-                      ? Colors.white
-                      : (dark ? Colors.white : Colors.black)
-                          .withValues(alpha: 0.6),
-                ),
+              color: selected
+                  ? Colors.white
+                  : (dark ? Colors.white : Colors.black).withValues(alpha: 0.6),
+            ),
           ),
         ),
       ),
@@ -1549,8 +1593,9 @@ class _TabBar extends StatelessWidget {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(24),
         color: overlay.withValues(alpha: dark ? 0.05 : 0.04),
-        border:
-            Border.all(color: overlay.withValues(alpha: dark ? 0.08 : 0.06)),
+        border: Border.all(
+          color: overlay.withValues(alpha: dark ? 0.08 : 0.06),
+        ),
       ),
       child: Row(
         children: [
@@ -1594,8 +1639,9 @@ class _TabPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final dark = _isDark(context);
-    final unselectedColor =
-        (dark ? Colors.white : Colors.black).withValues(alpha: 0.55);
+    final unselectedColor = (dark ? Colors.white : Colors.black).withValues(
+      alpha: 0.55,
+    );
 
     return Expanded(
       child: GestureDetector(
@@ -1620,9 +1666,9 @@ class _TabPill extends StatelessWidget {
               Text(
                 label,
                 style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                      fontSize: 13,
-                      color: selected ? Colors.white : unselectedColor,
-                    ),
+                  fontSize: 13,
+                  color: selected ? Colors.white : unselectedColor,
+                ),
               ),
             ],
           ),
@@ -1647,28 +1693,63 @@ class _StatChip extends StatelessWidget {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(20),
         color: overlay.withValues(alpha: dark ? 0.06 : 0.04),
-        border:
-            Border.all(color: overlay.withValues(alpha: dark ? 0.08 : 0.06)),
+        border: Border.all(
+          color: overlay.withValues(alpha: dark ? 0.08 : 0.06),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             value,
-            style: Theme.of(context)
-                .textTheme
-                .headlineMedium
-                ?.copyWith(fontSize: 24),
+            style: Theme.of(
+              context,
+            ).textTheme.headlineMedium?.copyWith(fontSize: 24),
           ),
           const SizedBox(height: 2),
           Text(
             label,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: overlay.withValues(alpha: 0.45),
-                  fontWeight: FontWeight.w700,
-                ),
+              color: overlay.withValues(alpha: 0.45),
+              fontWeight: FontWeight.w700,
+            ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _StatusTag extends StatelessWidget {
+  const _StatusTag({required this.label, required this.positive});
+
+  final String label;
+  final bool positive;
+
+  @override
+  Widget build(BuildContext context) {
+    final dark = _isDark(context);
+    final foreground = positive
+        ? (dark ? _brandWhite : const Color(0xFF166534))
+        : _brandRed;
+    final background = positive
+        ? (dark ? const Color(0x22F7F4EF) : const Color(0x1622C55E))
+        : const Color(0x16DC2626);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: foreground.withValues(alpha: 0.14)),
+      ),
+      child: Text(
+        label,
+        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+          color: foreground,
+          fontWeight: FontWeight.w800,
+          letterSpacing: 0.4,
+        ),
       ),
     );
   }
@@ -1702,8 +1783,7 @@ class _MomentumRing extends StatelessWidget {
                     CustomPaint(
                       painter: _RingPainter(
                         progress: value,
-                        baseRingColor:
-                            overlay.withValues(alpha: 0.07),
+                        baseRingColor: overlay.withValues(alpha: 0.07),
                       ),
                     ),
                     Center(
@@ -1712,20 +1792,15 @@ class _MomentumRing extends StatelessWidget {
                         children: [
                           Text(
                             '${(value * 100).round()}%',
-                            style: Theme.of(context)
-                                .textTheme
-                                .displaySmall
+                            style: Theme.of(context).textTheme.displaySmall
                                 ?.copyWith(fontWeight: FontWeight.w900),
                           ),
                           const SizedBox(height: 2),
                           Text(
                             'follow-through',
-                            style: Theme.of(context)
-                                .textTheme
-                                .bodySmall
+                            style: Theme.of(context).textTheme.bodySmall
                                 ?.copyWith(
-                                  color:
-                                      overlay.withValues(alpha: 0.45),
+                                  color: overlay.withValues(alpha: 0.45),
                                   fontWeight: FontWeight.w700,
                                 ),
                           ),
@@ -1813,18 +1888,17 @@ class _CompactHistoryRow extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: dark ? Colors.white : _brandBlack,
-                  fontWeight: FontWeight.w600,
-                ),
+              color: dark ? Colors.white : _brandBlack,
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ),
         const SizedBox(width: 8),
         Text(
           entry.dateKey.substring(5),
           style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: (dark ? Colors.white : Colors.black)
-                    .withValues(alpha: 0.4),
-              ),
+            color: (dark ? Colors.white : Colors.black).withValues(alpha: 0.4),
+          ),
         ),
       ],
     );
@@ -1855,25 +1929,21 @@ class _WeeklyStrip extends StatelessWidget {
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(14),
                   color: switch (entry.didComplete) {
-                    true => dark
-                        ? const Color(0x44F7F4EF)
-                        : const Color(0x3022C55E),
+                    true =>
+                      dark ? const Color(0x44F7F4EF) : const Color(0x3022C55E),
                     false => const Color(0x33DC2626),
-                    null => dark
-                        ? const Color(0x22D6D1CB)
-                        : const Color(0x11D6D1CB),
+                    null =>
+                      dark ? const Color(0x22D6D1CB) : const Color(0x11D6D1CB),
                   },
-                  border: Border.all(
-                      color: overlay.withValues(alpha: 0.06)),
+                  border: Border.all(color: overlay.withValues(alpha: 0.06)),
                 ),
                 child: Center(
                   child: Text(
                     entry.dateKey.substring(8),
-                    style:
-                        Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: dark ? Colors.white : _brandBlack,
-                              fontWeight: FontWeight.w800,
-                            ),
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: dark ? Colors.white : _brandBlack,
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
                 ),
               ),
@@ -1904,8 +1974,9 @@ class _HistoryCard extends StatelessWidget {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(20),
         color: overlay.withValues(alpha: dark ? 0.05 : 0.03),
-        border:
-            Border.all(color: overlay.withValues(alpha: dark ? 0.08 : 0.06)),
+        border: Border.all(
+          color: overlay.withValues(alpha: dark ? 0.08 : 0.06),
+        ),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1914,10 +1985,7 @@ class _HistoryCard extends StatelessWidget {
             width: 10,
             height: 10,
             margin: const EdgeInsets.only(top: 6),
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: dotColor,
-            ),
+            decoration: BoxDecoration(shape: BoxShape.circle, color: dotColor),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -1927,16 +1995,16 @@ class _HistoryCard extends StatelessWidget {
                 Text(
                   entry.oneThing,
                   style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                        color: dark ? _brandWhite : _brandBlack,
-                        fontWeight: FontWeight.w600,
-                      ),
+                    color: dark ? _brandWhite : _brandBlack,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
                 const SizedBox(height: 6),
                 Text(
                   entry.dateKey,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: overlay.withValues(alpha: 0.4),
-                      ),
+                    color: overlay.withValues(alpha: 0.4),
+                  ),
                 ),
               ],
             ),
@@ -1958,10 +2026,7 @@ class _LockBackdrop extends StatelessWidget {
       child: ColoredBox(
         color: const Color(0xE0070707),
         child: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: child,
-          ),
+          child: Padding(padding: const EdgeInsets.all(24), child: child),
         ),
       ),
     );

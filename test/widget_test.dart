@@ -68,7 +68,10 @@ void main() {
 
     expect(find.textContaining('What is the ONE thing'), findsOneWidget);
 
-    await tester.enterText(find.byType(TextField).first, 'Call 3 design partners');
+    await tester.enterText(
+      find.byType(TextField).first,
+      'Call 3 design partners',
+    );
     await tester.pump(const Duration(milliseconds: 100));
     await tester.tap(find.text('Unlock'));
     await tester.pump(const Duration(milliseconds: 500));
@@ -77,30 +80,33 @@ void main() {
     expect(find.textContaining('What is the ONE thing'), findsNothing);
   });
 
-  test('linked goal arming falls back to local mode on unexpected sync errors', () async {
-    final bridge = _ExplodingBridge();
-    final controller = GoalLockController(
-      cache: _MemoryCache(),
-      bridge: bridge,
-      notifications: _MemoryNotifications(),
-      now: () => DateTime(2026, 3, 7, 6),
-    );
+  test(
+    'linked goal arming falls back to local mode on unexpected sync errors',
+    () async {
+      final bridge = _ExplodingBridge();
+      final controller = GoalLockController(
+        cache: _MemoryCache(),
+        bridge: bridge,
+        notifications: _MemoryNotifications(),
+        now: () => DateTime(2026, 3, 7, 6),
+      );
 
-    await controller.initialize();
-    await controller.signIn(email: 'ava@rocket.test', password: 'secret123');
-    await controller.armGoalLock(
-      goal: 'Launch my startup',
-      morningLockMinutes: 6 * 60,
-      focusWindowHours: 14,
-    );
+      await controller.initialize();
+      await controller.signIn(email: 'ava@rocket.test', password: 'secret123');
+      await controller.armGoalLock(
+        goal: 'Launch my startup',
+        morningLockMinutes: 6 * 60,
+        focusWindowHours: 14,
+      );
 
-    expect(controller.goalPlan?.goal, 'Launch my startup');
-    expect(controller.goalPlan?.armed, isTrue);
-    expect(
-      controller.noticeMessage,
-      'Goal Lock armed locally. Rocket Goals sync hit an unexpected error.',
-    );
-  });
+      expect(controller.goalPlan?.goal, 'Launch my startup');
+      expect(controller.goalPlan?.armed, isTrue);
+      expect(
+        controller.noticeMessage,
+        'Goal Lock armed locally. Rocket Goals sync hit an unexpected error.',
+      );
+    },
+  );
 
   test('goal plans normalize persisted schedule values', () {
     final plan = GoalPlan.fromJson(<String, dynamic>{
@@ -138,29 +144,82 @@ void main() {
     expect(notifications.morningLockMinutes, 7 * 60);
   });
 
-  test('submitting the morning one thing schedules the evening reflection', () async {
-    final notifications = _MemoryNotifications();
+  test(
+    'submitting the morning one thing schedules the evening reflection',
+    () async {
+      final notifications = _MemoryNotifications();
+      final controller = GoalLockController(
+        cache: _MemoryCache(),
+        bridge: const _FakeBridge(),
+        notifications: notifications,
+        now: () => DateTime(2026, 3, 7, 8),
+      );
+
+      await controller.initialize();
+      await controller.continueInPreview();
+      await controller.armGoalLock(
+        goal: 'Launch my startup',
+        morningLockMinutes: 6 * 60,
+        focusWindowHours: 14,
+      );
+      await controller.submitMorningOneThing('Call 3 design partners');
+
+      expect(notifications.middayReminder?.oneThing, 'Call 3 design partners');
+      expect(notifications.middayReminder?.when, DateTime(2026, 3, 7, 12));
+      expect(notifications.eveningReminder?.oneThing, 'Call 3 design partners');
+      expect(notifications.eveningReminder?.when, DateTime(2026, 3, 7, 20));
+    },
+  );
+
+  testWidgets('noon lock accepts an on-track check-in', (tester) async {
+    final snapshot = GoalLockSnapshot(
+      account: const UserAccount(
+        userId: 'preview-user',
+        firstName: 'Ava',
+        lastName: 'Jordan',
+        email: 'ava@preview.rocket',
+        mode: ExperienceMode.preview,
+        emailVerified: true,
+      ),
+      goalPlan: GoalPlan(
+        goal: 'Launch my startup',
+        morningLockMinutes: 6 * 60,
+        focusWindowHours: 14,
+        createdAt: DateTime(2026, 3, 1),
+        armed: true,
+        importedFromRocketGoals: false,
+      ),
+      commitments: <DailyCommitment>[
+        DailyCommitment(
+          dateKey: '2026-03-07',
+          oneThing: 'Call 3 design partners',
+          committedAt: DateTime(2026, 3, 7, 8),
+          middayOnTrack: null,
+          middayCheckedAt: null,
+          didComplete: null,
+          reflectedAt: null,
+        ),
+      ],
+    );
+
     final controller = GoalLockController(
-      cache: _MemoryCache(),
+      cache: _MemoryCache(seed: snapshot.toJson()),
       bridge: const _FakeBridge(),
-      notifications: notifications,
-      now: () => DateTime(2026, 3, 7, 8),
+      notifications: _MemoryNotifications(),
+      now: () => DateTime(2026, 3, 7, 12, 15),
     );
 
-    await controller.initialize();
-    await controller.continueInPreview();
-    await controller.armGoalLock(
-      goal: 'Launch my startup',
-      morningLockMinutes: 6 * 60,
-      focusWindowHours: 14,
-    );
-    await controller.submitMorningOneThing('Call 3 design partners');
+    await tester.pumpWidget(GoalLockApp(controller: controller));
+    await tester.pumpAndSettle();
 
-    expect(notifications.eveningReminder?.oneThing, 'Call 3 design partners');
-    expect(
-      notifications.eveningReminder?.when,
-      DateTime(2026, 3, 7, 20),
-    );
+    expect(find.text('Are you on track to do your one thing?'), findsOneWidget);
+    expect(find.text('Call 3 design partners'), findsWidgets);
+
+    await tester.tap(find.text('Yes'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Are you on track to do your one thing?'), findsNothing);
+    expect(controller.todayCommitment?.middayOnTrack, isTrue);
   });
 
   test('updating the goal changes the title and reminder copy', () async {
@@ -285,6 +344,7 @@ class _MemoryNotifications implements GoalLockNotifications {
   int cancelCalls = 0;
   String? morningGoal;
   int? morningLockMinutes;
+  MiddayCheckInReminder? middayReminder;
   EveningReflectionReminder? eveningReminder;
 
   @override
@@ -292,6 +352,7 @@ class _MemoryNotifications implements GoalLockNotifications {
     cancelCalls += 1;
     morningGoal = null;
     morningLockMinutes = null;
+    middayReminder = null;
     eveningReminder = null;
   }
 
@@ -311,6 +372,11 @@ class _MemoryNotifications implements GoalLockNotifications {
     EveningReflectionReminder reminder,
   ) async {
     eveningReminder = reminder;
+  }
+
+  @override
+  Future<void> scheduleMiddayCheckIn(MiddayCheckInReminder reminder) async {
+    middayReminder = reminder;
   }
 
   @override

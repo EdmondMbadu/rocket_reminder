@@ -130,7 +130,8 @@ class GoalPlan {
       focusWindowHours: clampFocusWindowHours(
         _coerceInt(json['focusWindowHours']) ?? 14,
       ),
-      createdAt: DateTime.tryParse(json['createdAt'] as String? ?? '') ??
+      createdAt:
+          DateTime.tryParse(json['createdAt'] as String? ?? '') ??
           DateTime.now(),
       armed: json['armed'] as bool? ?? false,
       importedFromRocketGoals:
@@ -144,6 +145,8 @@ class DailyCommitment {
     required this.dateKey,
     required this.oneThing,
     required this.committedAt,
+    required this.middayOnTrack,
+    required this.middayCheckedAt,
     required this.didComplete,
     required this.reflectedAt,
   });
@@ -151,6 +154,8 @@ class DailyCommitment {
   final String dateKey;
   final String oneThing;
   final DateTime committedAt;
+  final bool? middayOnTrack;
+  final DateTime? middayCheckedAt;
   final bool? didComplete;
   final DateTime? reflectedAt;
 
@@ -160,6 +165,8 @@ class DailyCommitment {
     String? dateKey,
     String? oneThing,
     DateTime? committedAt,
+    Object? middayOnTrack = _unset,
+    Object? middayCheckedAt = _unset,
     Object? didComplete = _unset,
     Object? reflectedAt = _unset,
   }) {
@@ -167,6 +174,12 @@ class DailyCommitment {
       dateKey: dateKey ?? this.dateKey,
       oneThing: oneThing ?? this.oneThing,
       committedAt: committedAt ?? this.committedAt,
+      middayOnTrack: identical(middayOnTrack, _unset)
+          ? this.middayOnTrack
+          : middayOnTrack as bool?,
+      middayCheckedAt: identical(middayCheckedAt, _unset)
+          ? this.middayCheckedAt
+          : middayCheckedAt as DateTime?,
       didComplete: identical(didComplete, _unset)
           ? this.didComplete
           : didComplete as bool?,
@@ -181,6 +194,8 @@ class DailyCommitment {
       'dateKey': dateKey,
       'oneThing': oneThing,
       'committedAt': committedAt.toIso8601String(),
+      'middayOnTrack': middayOnTrack,
+      'middayCheckedAt': middayCheckedAt?.toIso8601String(),
       'didComplete': didComplete,
       'reflectedAt': reflectedAt?.toIso8601String(),
     };
@@ -192,7 +207,11 @@ class DailyCommitment {
       oneThing: json['oneThing'] as String? ?? '',
       committedAt:
           DateTime.tryParse(json['committedAt'] as String? ?? '') ??
-              DateTime.now(),
+          DateTime.now(),
+      middayOnTrack: json['middayOnTrack'] as bool?,
+      middayCheckedAt: DateTime.tryParse(
+        json['middayCheckedAt'] as String? ?? '',
+      ),
       didComplete: json['didComplete'] as bool?,
       reflectedAt: DateTime.tryParse(json['reflectedAt'] as String? ?? ''),
     );
@@ -237,8 +256,9 @@ class GoalLockSnapshot {
               (json['goalPlan'] as Map<dynamic, dynamic>)
                   .cast<String, dynamic>(),
             ),
-      commitments:
-          commitmentJson.map(DailyCommitment.fromJson).toList(growable: false),
+      commitments: commitmentJson
+          .map(DailyCommitment.fromJson)
+          .toList(growable: false),
       isDarkMode: json['isDarkMode'] as bool? ?? false,
     );
   }
@@ -266,8 +286,11 @@ DateTime dateFromKey(String key) {
 }
 
 DateTime dateAtMinutes(DateTime date, int minutes) {
-  return DateTime(date.year, date.month, date.day)
-      .add(Duration(minutes: minutes));
+  return DateTime(
+    date.year,
+    date.month,
+    date.day,
+  ).add(Duration(minutes: minutes));
 }
 
 int normalizeMinutesOfDay(int minutes) {

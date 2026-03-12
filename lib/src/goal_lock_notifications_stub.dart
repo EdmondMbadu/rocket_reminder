@@ -13,6 +13,9 @@ class _NoopGoalLockNotifications implements GoalLockNotifications {
   Future<void> initialize() async {}
 
   @override
+  Future<void> scheduleMiddayCheckIn(MiddayCheckInReminder reminder) async {}
+
+  @override
   Future<void> scheduleEveningReflection(
     EveningReflectionReminder reminder,
   ) async {}

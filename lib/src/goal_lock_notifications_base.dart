@@ -1,3 +1,15 @@
+class MiddayCheckInReminder {
+  const MiddayCheckInReminder({
+    required this.goal,
+    required this.oneThing,
+    required this.when,
+  });
+
+  final String goal;
+  final String oneThing;
+  final DateTime when;
+}
+
 class EveningReflectionReminder {
   const EveningReflectionReminder({
     required this.goal,
@@ -21,6 +33,8 @@ abstract class GoalLockNotifications {
     required String goal,
     required int morningLockMinutes,
   });
+
+  Future<void> scheduleMiddayCheckIn(MiddayCheckInReminder reminder);
 
   Future<void> scheduleEveningReflection(EveningReflectionReminder reminder);
 }

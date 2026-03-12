@@ -12,11 +12,12 @@ class _FlutterGoalLockNotifications implements GoalLockNotifications {
   _FlutterGoalLockNotifications();
 
   static const int _morningNotificationId = 4101;
-  static const int _eveningNotificationId = 4102;
+  static const int _middayNotificationId = 4102;
+  static const int _eveningNotificationId = 4103;
   static const String _channelId = 'goal_lock_daily';
   static const String _channelName = 'Rocket Reminder alerts';
   static const String _channelDescription =
-      'Morning and evening Rocket Reminder alerts.';
+      'Morning, noon, and evening Rocket Reminder alerts.';
 
   final FlutterLocalNotificationsPlugin _plugin =
       FlutterLocalNotificationsPlugin();
@@ -60,9 +61,11 @@ class _FlutterGoalLockNotifications implements GoalLockNotifications {
 
     final ios = _plugin
         .resolvePlatformSpecificImplementation<
-            IOSFlutterLocalNotificationsPlugin>();
+          IOSFlutterLocalNotificationsPlugin
+        >();
     if (ios != null) {
-      granted = (await ios.requestPermissions(
+      granted =
+          (await ios.requestPermissions(
             alert: true,
             badge: true,
             sound: true,
@@ -72,9 +75,11 @@ class _FlutterGoalLockNotifications implements GoalLockNotifications {
 
     final macos = _plugin
         .resolvePlatformSpecificImplementation<
-            MacOSFlutterLocalNotificationsPlugin>();
+          MacOSFlutterLocalNotificationsPlugin
+        >();
     if (macos != null) {
-      granted = ((await macos.requestPermissions(
+      granted =
+          ((await macos.requestPermissions(
                 alert: true,
                 badge: true,
                 sound: true,
@@ -85,10 +90,11 @@ class _FlutterGoalLockNotifications implements GoalLockNotifications {
 
     final android = _plugin
         .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>();
+          AndroidFlutterLocalNotificationsPlugin
+        >();
     if (android != null) {
-      granted = (await android.requestNotificationsPermission() ?? true) &&
-          granted;
+      granted =
+          (await android.requestNotificationsPermission() ?? true) && granted;
     }
 
     return granted;
@@ -98,6 +104,7 @@ class _FlutterGoalLockNotifications implements GoalLockNotifications {
   Future<void> cancelAll() async {
     await initialize();
     await _plugin.cancel(id: _morningNotificationId);
+    await _plugin.cancel(id: _middayNotificationId);
     await _plugin.cancel(id: _eveningNotificationId);
   }
 
@@ -116,6 +123,26 @@ class _FlutterGoalLockNotifications implements GoalLockNotifications {
       notificationDetails: _details,
       androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
       matchDateTimeComponents: DateTimeComponents.time,
+    );
+  }
+
+  @override
+  Future<void> scheduleMiddayCheckIn(MiddayCheckInReminder reminder) async {
+    await initialize();
+    final scheduledAt = tz.TZDateTime.from(reminder.when, tz.local);
+    final now = tz.TZDateTime.now(tz.local);
+    if (!scheduledAt.isAfter(now)) {
+      return;
+    }
+
+    await _plugin.zonedSchedule(
+      id: _middayNotificationId,
+      title: 'Rocket Reminder check-in',
+      body:
+          'Are you on track to do your one thing? ${_compact(reminder.oneThing)}',
+      scheduledDate: scheduledAt,
+      notificationDetails: _details,
+      androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
     );
   }
 
@@ -141,21 +168,21 @@ class _FlutterGoalLockNotifications implements GoalLockNotifications {
   }
 
   NotificationDetails get _details => const NotificationDetails(
-        android: AndroidNotificationDetails(
-          _channelId,
-          _channelName,
-          channelDescription: _channelDescription,
-          importance: Importance.max,
-          priority: Priority.high,
-          playSound: true,
-          enableVibration: true,
-        ),
-        iOS: DarwinNotificationDetails(
-          presentAlert: true,
-          presentBadge: true,
-          presentSound: true,
-        ),
-      );
+    android: AndroidNotificationDetails(
+      _channelId,
+      _channelName,
+      channelDescription: _channelDescription,
+      importance: Importance.max,
+      priority: Priority.high,
+      playSound: true,
+      enableVibration: true,
+    ),
+    iOS: DarwinNotificationDetails(
+      presentAlert: true,
+      presentBadge: true,
+      presentSound: true,
+    ),
+  );
 
   tz.TZDateTime _nextTimeOfDay(int minutesOfDay) {
     final now = tz.TZDateTime.now(tz.local);

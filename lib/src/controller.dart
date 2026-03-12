@@ -10,8 +10,18 @@ import 'rocket_goals_bridge.dart';
 import 'rocket_goals_bridge_base.dart';
 
 enum AuthMode { signIn, signUp }
+
 enum AppTab { today, history, settings }
-enum LockPhase { loading, auth, onboarding, unlocked, morningLocked, eveningLocked }
+
+enum LockPhase {
+  loading,
+  auth,
+  onboarding,
+  unlocked,
+  morningLocked,
+  noonLocked,
+  eveningLocked,
+}
 
 class GoalLockController extends ChangeNotifier {
   GoalLockController({
@@ -19,15 +29,16 @@ class GoalLockController extends ChangeNotifier {
     RocketGoalsBridge? bridge,
     GoalLockNotifications? notifications,
     DateTime Function()? now,
-  })  : _cache = cache ?? createLocalCache(),
-        _bridge = bridge ?? createRocketGoalsBridge(),
-        _notifications = notifications ?? createGoalLockNotifications(),
-        _now = now ?? DateTime.now;
+  }) : _cache = cache ?? createLocalCache(),
+       _bridge = bridge ?? createRocketGoalsBridge(),
+       _notifications = notifications ?? createGoalLockNotifications(),
+       _now = now ?? DateTime.now;
 
   final LocalCache _cache;
   final RocketGoalsBridge _bridge;
   final GoalLockNotifications _notifications;
   final DateTime Function() _now;
+  static const int middayCheckMinutes = 12 * 60;
 
   Timer? _ticker;
   RemoteCredentials? _remoteCredentials;
@@ -77,6 +88,9 @@ class GoalLockController extends ChangeNotifier {
     if (pendingReflection != null) {
       return LockPhase.eveningLocked;
     }
+    if (pendingMiddayCheck != null) {
+      return LockPhase.noonLocked;
+    }
     if (_shouldShowMorningLock()) {
       return LockPhase.morningLocked;
     }
@@ -104,6 +118,18 @@ class GoalLockController extends ChangeNotifier {
       }
     }
     return null;
+  }
+
+  DailyCommitment? get pendingMiddayCheck {
+    final plan = _goalPlan;
+    final entry = todayCommitment;
+    if (plan == null || entry == null) {
+      return null;
+    }
+    if (!_shouldRequireMiddayCheck(entry, plan, _now())) {
+      return null;
+    }
+    return entry;
   }
 
   int get currentStreak {
@@ -135,11 +161,15 @@ class GoalLockController extends ChangeNotifier {
   }
 
   double get followThroughRate {
-    final reflected = _commitments.where((entry) => entry.didComplete != null).toList();
+    final reflected = _commitments
+        .where((entry) => entry.didComplete != null)
+        .toList();
     if (reflected.isEmpty) {
       return 0;
     }
-    final yesCount = reflected.where((entry) => entry.didComplete == true).length;
+    final yesCount = reflected
+        .where((entry) => entry.didComplete == true)
+        .length;
     return yesCount / reflected.length;
   }
 
@@ -199,16 +229,14 @@ class GoalLockController extends ChangeNotifier {
     _goalPlan = null;
     _remoteCredentials = null;
     _commitments = const [];
-    _noticeMessage = 'Preview mode is live. Link your Rocket Goals account anytime.';
+    _noticeMessage =
+        'Preview mode is live. Link your Rocket Goals account anytime.';
     await _persist();
     await _syncNotifications();
     _setBusy(false);
   }
 
-  Future<void> signIn({
-    required String email,
-    required String password,
-  }) async {
+  Future<void> signIn({required String email, required String password}) async {
     await _runBridgeAction(() async {
       final bundle = await _bridge.signIn(email: email, password: password);
       _account = bundle.account;
@@ -319,13 +347,25 @@ class GoalLockController extends ChangeNotifier {
     }
 
     final key = dateKeyFromDate(_now());
-    final existingIndex = _commitments.indexWhere((entry) => entry.dateKey == key);
+    final existingIndex = _commitments.indexWhere(
+      (entry) => entry.dateKey == key,
+    );
     final updatedEntry = DailyCommitment(
       dateKey: key,
       oneThing: trimmed,
       committedAt: _now(),
-      didComplete: existingIndex == -1 ? null : _commitments[existingIndex].didComplete,
-      reflectedAt: existingIndex == -1 ? null : _commitments[existingIndex].reflectedAt,
+      middayOnTrack: existingIndex == -1
+          ? null
+          : _commitments[existingIndex].middayOnTrack,
+      middayCheckedAt: existingIndex == -1
+          ? null
+          : _commitments[existingIndex].middayCheckedAt,
+      didComplete: existingIndex == -1
+          ? null
+          : _commitments[existingIndex].didComplete,
+      reflectedAt: existingIndex == -1
+          ? null
+          : _commitments[existingIndex].reflectedAt,
     );
 
     if (existingIndex == -1) {
@@ -344,14 +384,44 @@ class GoalLockController extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> submitMiddayCheck(bool onTrack) async {
+    final entry = pendingMiddayCheck;
+    if (entry == null) {
+      return;
+    }
+
+    final index = _commitments.indexWhere(
+      (item) => item.dateKey == entry.dateKey,
+    );
+    if (index == -1) {
+      return;
+    }
+
+    final next = [..._commitments];
+    next[index] = entry.copyWith(
+      middayOnTrack: onTrack,
+      middayCheckedAt: _now(),
+    );
+    _commitments = next;
+    _noticeMessage = onTrack
+        ? 'You are still on it. Finish the day strong.'
+        : 'Noted. Reset the next block and get back to the one thing.';
+    _errorMessage = null;
+    await _syncLatest();
+    await _persist();
+    await _syncNotifications(requestPermissions: true);
+    notifyListeners();
+  }
+
   Future<void> submitEveningReflection(bool didComplete) async {
     final reflectionTarget = pendingReflection;
     if (reflectionTarget == null) {
       return;
     }
 
-    final index =
-        _commitments.indexWhere((entry) => entry.dateKey == reflectionTarget.dateKey);
+    final index = _commitments.indexWhere(
+      (entry) => entry.dateKey == reflectionTarget.dateKey,
+    );
     if (index == -1) {
       return;
     }
@@ -438,16 +508,25 @@ class GoalLockController extends ChangeNotifier {
     final now = _now();
     final today = DateTime(now.year, now.month, now.day);
     final morningAt = dateAtMinutes(today, plan.morningLockMinutes);
+    final noonAt = dateAtMinutes(today, middayCheckMinutes);
     final reflectionAt = dateAtMinutes(today, plan.reflectionLockMinutes);
     final todaysEntry = todayCommitment;
 
     if (pendingReflection != null) {
       return 'Reflection is due now.';
     }
+    if (pendingMiddayCheck != null) {
+      return 'Noon check-in is due now.';
+    }
     if (todaysEntry == null && now.isBefore(morningAt)) {
       return 'Morning lock at ${formatMinutes(plan.morningLockMinutes)}.';
     }
-    if (todaysEntry != null && todaysEntry.didComplete == null && now.isBefore(reflectionAt)) {
+    if (_hasUpcomingMiddayCheck(todaysEntry, plan, now)) {
+      return 'Noon check-in at ${formatMinutes(noonAt.hour * 60 + noonAt.minute)}.';
+    }
+    if (todaysEntry != null &&
+        todaysEntry.didComplete == null &&
+        now.isBefore(reflectionAt)) {
       return 'Reflection lock at ${formatMinutes(plan.reflectionLockMinutes)}.';
     }
     return 'Tomorrow at ${formatMinutes(plan.morningLockMinutes)}.';
@@ -494,7 +573,7 @@ class GoalLockController extends ChangeNotifier {
         final granted = await _notifications.ensurePermissions();
         if (!granted && _goalPlan?.armed == true) {
           _noticeMessage ??=
-              'Enable notifications so Goal Lock can ring in the morning and at night.';
+              'Enable notifications so Goal Lock can ring in the morning, at noon, and in the evening.';
         }
       }
 
@@ -509,6 +588,11 @@ class GoalLockController extends ChangeNotifier {
         goal: plan.goal,
         morningLockMinutes: plan.morningLockMinutes,
       );
+
+      final midday = _pendingMiddayReminder(plan);
+      if (midday != null) {
+        await _notifications.scheduleMiddayCheckIn(midday);
+      }
 
       final pending = _pendingReflectionReminder(plan);
       if (pending != null) {
@@ -527,6 +611,8 @@ class GoalLockController extends ChangeNotifier {
         dateKey: dateKeyFromDate(today.subtract(const Duration(days: 1))),
         oneThing: 'Ship the landing page hero for ${plan.goal.toLowerCase()}',
         committedAt: today.subtract(const Duration(days: 1, hours: 11)),
+        middayOnTrack: true,
+        middayCheckedAt: today.subtract(const Duration(days: 1)),
         didComplete: true,
         reflectedAt: today.subtract(const Duration(days: 1, hours: 2)),
       ),
@@ -534,6 +620,8 @@ class GoalLockController extends ChangeNotifier {
         dateKey: dateKeyFromDate(today.subtract(const Duration(days: 2))),
         oneThing: 'Draft the boldest version of the launch narrative',
         committedAt: today.subtract(const Duration(days: 2, hours: 11)),
+        middayOnTrack: true,
+        middayCheckedAt: today.subtract(const Duration(days: 2)),
         didComplete: true,
         reflectedAt: today.subtract(const Duration(days: 2, hours: 2)),
       ),
@@ -541,6 +629,8 @@ class GoalLockController extends ChangeNotifier {
         dateKey: dateKeyFromDate(today.subtract(const Duration(days: 3))),
         oneThing: 'Ask one person for direct feedback on the offer',
         committedAt: today.subtract(const Duration(days: 3, hours: 10)),
+        middayOnTrack: false,
+        middayCheckedAt: today.subtract(const Duration(days: 3, hours: 3)),
         didComplete: false,
         reflectedAt: today.subtract(const Duration(days: 3, hours: 2)),
       ),
@@ -548,6 +638,8 @@ class GoalLockController extends ChangeNotifier {
         dateKey: dateKeyFromDate(today.subtract(const Duration(days: 4))),
         oneThing: 'Write the first ugly draft before breakfast',
         committedAt: today.subtract(const Duration(days: 4, hours: 11)),
+        middayOnTrack: true,
+        middayCheckedAt: today.subtract(const Duration(days: 4)),
         didComplete: true,
         reflectedAt: today.subtract(const Duration(days: 4, hours: 2)),
       ),
@@ -572,6 +664,73 @@ class GoalLockController extends ChangeNotifier {
     final morningAt = dateAtMinutes(today, plan.morningLockMinutes);
     final todayEntry = _commitmentForDate(dateKeyFromDate(today));
     return !_now().isBefore(morningAt) && todayEntry == null;
+  }
+
+  bool _shouldRequireMiddayCheck(
+    DailyCommitment entry,
+    GoalPlan plan,
+    DateTime now,
+  ) {
+    if (entry.middayOnTrack != null) {
+      return false;
+    }
+    final today = DateTime(now.year, now.month, now.day);
+    final noonAt = dateAtMinutes(today, middayCheckMinutes);
+    final reflectionAt = dateAtMinutes(today, plan.reflectionLockMinutes);
+    if (!entry.committedAt.isBefore(noonAt)) {
+      return false;
+    }
+    if (now.isBefore(noonAt)) {
+      return false;
+    }
+    if (!now.isBefore(reflectionAt)) {
+      return false;
+    }
+    return true;
+  }
+
+  bool _hasUpcomingMiddayCheck(
+    DailyCommitment? entry,
+    GoalPlan plan,
+    DateTime now,
+  ) {
+    if (entry == null || entry.middayOnTrack != null) {
+      return false;
+    }
+    final today = DateTime(now.year, now.month, now.day);
+    final noonAt = dateAtMinutes(today, middayCheckMinutes);
+    final reflectionAt = dateAtMinutes(today, plan.reflectionLockMinutes);
+    if (!entry.committedAt.isBefore(noonAt)) {
+      return false;
+    }
+    if (!now.isBefore(noonAt)) {
+      return false;
+    }
+    return noonAt.isBefore(reflectionAt);
+  }
+
+  MiddayCheckInReminder? _pendingMiddayReminder(GoalPlan plan) {
+    final entry = todayCommitment;
+    if (entry == null || entry.middayOnTrack != null) {
+      return null;
+    }
+
+    final now = _now();
+    final today = DateTime(now.year, now.month, now.day);
+    final noonAt = dateAtMinutes(today, middayCheckMinutes);
+    final reflectionAt = dateAtMinutes(today, plan.reflectionLockMinutes);
+    if (!entry.committedAt.isBefore(noonAt)) {
+      return null;
+    }
+    if (!noonAt.isAfter(now) || !noonAt.isBefore(reflectionAt)) {
+      return null;
+    }
+
+    return MiddayCheckInReminder(
+      goal: plan.goal,
+      oneThing: entry.oneThing,
+      when: noonAt,
+    );
   }
 
   EveningReflectionReminder? _pendingReflectionReminder(GoalPlan plan) {
