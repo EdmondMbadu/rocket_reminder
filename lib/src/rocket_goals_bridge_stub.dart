@@ -66,6 +66,7 @@ class _UnavailableBridge implements RocketGoalsBridge {
     required GoalPlan plan,
     required RemoteCredentials credentials,
     DailyCommitment? latestCommitment,
+    List<DailyCommitment> commitments = const [],
   }) async {
     return plan;
   }

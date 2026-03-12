@@ -257,7 +257,7 @@ class GoalLockController extends ChangeNotifier {
       final bundle = await _bridge.signIn(email: email, password: password);
       _account = bundle.account;
       _goalPlan = bundle.importedGoal;
-      _commitments = const [];
+      _commitments = bundle.importedCommitments;
       _remoteCredentials = bundle.credentials;
       _noticeMessage = bundle.notice;
       await _persist();
@@ -279,7 +279,7 @@ class GoalLockController extends ChangeNotifier {
       );
       _account = bundle.account;
       _goalPlan = bundle.importedGoal;
-      _commitments = const [];
+      _commitments = bundle.importedCommitments;
       _remoteCredentials = bundle.credentials;
       _noticeMessage = bundle.notice;
       await _persist();
@@ -310,6 +310,7 @@ class GoalLockController extends ChangeNotifier {
       );
       _account = bundle.account;
       _goalPlan = bundle.importedGoal ?? _goalPlan;
+      _commitments = bundle.importedCommitments;
       if (!silent) {
         _noticeMessage = bundle.notice;
       }
@@ -401,6 +402,7 @@ class GoalLockController extends ChangeNotifier {
           plan: draft,
           credentials: _remoteCredentials!,
           latestCommitment: todayCommitment,
+          commitments: _sortedCommitmentsDesc(),
         );
         _noticeMessage = draft.importedFromRocketGoals
             ? 'Goal Lock armed and synced back to Rocket Goals.'
@@ -637,6 +639,7 @@ class GoalLockController extends ChangeNotifier {
         latestCommitment: _sortedCommitmentsDesc().isEmpty
             ? null
             : _sortedCommitmentsDesc().first,
+        commitments: _sortedCommitmentsDesc(),
       );
     } on BridgeException catch (error) {
       _noticeMessage = error.message;

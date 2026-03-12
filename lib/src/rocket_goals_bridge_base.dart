@@ -19,12 +19,14 @@ class LinkedAccountBundle {
     required this.account,
     required this.credentials,
     required this.importedGoal,
+    required this.importedCommitments,
     required this.notice,
   });
 
   final UserAccount account;
   final RemoteCredentials credentials;
   final GoalPlan? importedGoal;
+  final List<DailyCommitment> importedCommitments;
   final String? notice;
 }
 
@@ -69,5 +71,6 @@ abstract class RocketGoalsBridge {
     required GoalPlan plan,
     required RemoteCredentials credentials,
     DailyCommitment? latestCommitment,
+    List<DailyCommitment> commitments = const [],
   });
 }

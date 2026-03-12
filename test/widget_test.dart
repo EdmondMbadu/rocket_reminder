@@ -331,6 +331,21 @@ void main() {
 
     expect(controller.lockPhase, LockPhase.onboarding);
   });
+
+  test('sign in restores remote Goal Lock history', () async {
+    final controller = GoalLockController(
+      cache: _MemoryCache(),
+      bridge: const _SignedInBridge(),
+      now: () => DateTime(2026, 3, 7, 8),
+    );
+
+    await controller.initialize();
+    await controller.signIn(email: 'ava@rocket.test', password: 'secret123');
+
+    expect(controller.commitments, hasLength(2));
+    expect(controller.commitments.first.dateKey, '2026-03-07');
+    expect(controller.commitments.first.oneThing, 'Call 3 design partners');
+  });
 }
 
 class _MemoryCache implements LocalCache {
@@ -403,8 +418,66 @@ class _FakeBridge implements RocketGoalsBridge {
     required GoalPlan plan,
     required RemoteCredentials credentials,
     DailyCommitment? latestCommitment,
+    List<DailyCommitment> commitments = const [],
   }) async {
     return plan;
+  }
+}
+
+class _SignedInBridge extends _FakeBridge {
+  const _SignedInBridge();
+
+  @override
+  Future<LinkedAccountBundle> signIn({
+    required String email,
+    required String password,
+  }) async {
+    return LinkedAccountBundle(
+      account: UserAccount(
+        userId: 'linked-user',
+        firstName: 'Ava',
+        lastName: 'Jordan',
+        email: email,
+        mode: ExperienceMode.linked,
+        emailVerified: true,
+        goalLockAccessGranted: true,
+      ),
+      credentials: RemoteCredentials(
+        userId: 'linked-user',
+        idToken: 'id-token',
+        refreshToken: 'refresh-token',
+        email: email,
+      ),
+      importedGoal: GoalPlan(
+        goal: 'Launch my startup',
+        morningLockMinutes: 6 * 60,
+        focusWindowHours: 14,
+        createdAt: DateTime(2026, 3, 1),
+        armed: true,
+        importedFromRocketGoals: true,
+      ),
+      importedCommitments: <DailyCommitment>[
+        DailyCommitment(
+          dateKey: '2026-03-07',
+          oneThing: 'Call 3 design partners',
+          committedAt: DateTime(2026, 3, 7, 8),
+          middayOnTrack: true,
+          middayCheckedAt: DateTime(2026, 3, 7, 12, 5),
+          didComplete: null,
+          reflectedAt: null,
+        ),
+        DailyCommitment(
+          dateKey: '2026-03-06',
+          oneThing: 'Draft the launch email',
+          committedAt: DateTime(2026, 3, 6, 8),
+          middayOnTrack: true,
+          middayCheckedAt: DateTime(2026, 3, 6, 12, 2),
+          didComplete: true,
+          reflectedAt: DateTime(2026, 3, 6, 20),
+        ),
+      ],
+      notice: null,
+    );
   }
 }
 
@@ -433,6 +506,7 @@ class _ExplodingBridge extends _FakeBridge {
         email: email,
       ),
       importedGoal: null,
+      importedCommitments: const [],
       notice: null,
     );
   }
@@ -443,6 +517,7 @@ class _ExplodingBridge extends _FakeBridge {
     required GoalPlan plan,
     required RemoteCredentials credentials,
     DailyCommitment? latestCommitment,
+    List<DailyCommitment> commitments = const [],
   }) {
     throw ArgumentError.value('bad sync payload');
   }

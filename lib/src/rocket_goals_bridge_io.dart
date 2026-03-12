@@ -131,6 +131,7 @@ class _FirebaseRestBridge implements RocketGoalsBridge {
       ),
       credentials: credentials,
       importedGoal: null,
+      importedCommitments: const [],
       notice:
           'Account created. Verify your email, then complete payment to unlock Goal Lock.',
     );
@@ -204,6 +205,7 @@ class _FirebaseRestBridge implements RocketGoalsBridge {
     required GoalPlan plan,
     required RemoteCredentials credentials,
     DailyCommitment? latestCommitment,
+    List<DailyCommitment> commitments = const [],
   }) async {
     final goalId = plan.goalId ?? _randomGoalId();
     final syncedPlan = plan.copyWith(goalId: goalId, armed: true);
@@ -244,7 +246,12 @@ class _FirebaseRestBridge implements RocketGoalsBridge {
       collection: 'userProfiles',
       documentId: account.userId,
       idToken: credentials.idToken,
-      values: <String, dynamic>{'myOneThingGoalId': goalId},
+      values: <String, dynamic>{
+        'myOneThingGoalId': goalId,
+        'goalLockCommitments': commitments
+            .map((entry) => entry.toJson())
+            .toList(),
+      },
     );
 
     return syncedPlan;
@@ -287,6 +294,7 @@ class _FirebaseRestBridge implements RocketGoalsBridge {
       account: account,
       credentials: credentials,
       importedGoal: importedGoal,
+      importedCommitments: _decodeCommitments(profile['goalLockCommitments']),
       notice: account.hasGoalLockAccess
           ? (importedGoal == null
                 ? 'Rocket Goals account linked. Set one goal and arm tomorrow.'
@@ -743,6 +751,17 @@ class _FirebaseRestBridge implements RocketGoalsBridge {
 
   bool _isAdminProfile(Map<String, dynamic> profile) {
     return profile['admin'] == true || profile['role'] == 'admin';
+  }
+
+  List<DailyCommitment> _decodeCommitments(Object? raw) {
+    if (raw is! List) {
+      return const [];
+    }
+
+    return raw
+        .whereType<Map>()
+        .map((entry) => DailyCommitment.fromJson(entry.cast<String, dynamic>()))
+        .toList(growable: false);
   }
 }
 
