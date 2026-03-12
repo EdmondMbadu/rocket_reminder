@@ -201,6 +201,7 @@
 				97C146EC1CF9000F007C117D /* Resources */,
 				9705A1C41CF9048500538489 /* Embed Frameworks */,
 				3B06AD1E1E4923F5004D2608 /* Thin Binary */,
+				F87964F1DC4EA1B9BCA7242A /* [CP] Embed Pods Frameworks */,
 			);
 			buildRules = (
 			);
@@ -346,6 +347,23 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "LOCAL_PROPERTIES=\"$SRCROOT/../android/local.properties\"\nif [ -f \"$LOCAL_PROPERTIES\" ]; then\n  ROCKET_GOALS_API_KEY=$(sed -n 's/^rocket\\.goals\\.firebaseApiKey=//p' \"$LOCAL_PROPERTIES\" | head -n 1 | tr -d '\\r')\n  if [ -n \"$ROCKET_GOALS_API_KEY\" ]; then\n    ENCODED_ROCKET_GOALS_DEFINE=$(printf '%s' \"ROCKET_GOALS_FIREBASE_API_KEY=$ROCKET_GOALS_API_KEY\" | base64 | tr -d '\\n')\n    if [ -n \"${DART_DEFINES:-}\" ]; then\n      case \",$DART_DEFINES,\" in\n        *\",$ENCODED_ROCKET_GOALS_DEFINE,\"*) ;;\n        *) export DART_DEFINES=\"$DART_DEFINES,$ENCODED_ROCKET_GOALS_DEFINE\" ;;\n      esac\n    else\n      export DART_DEFINES=\"$ENCODED_ROCKET_GOALS_DEFINE\"\n    fi\n  fi\nfi\n/bin/sh \"$FLUTTER_ROOT/packages/flutter_tools/bin/xcode_backend.sh\" build";
+		};
+		F87964F1DC4EA1B9BCA7242A /* [CP] Embed Pods Frameworks */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+				"${PODS_ROOT}/Target Support Files/Pods-Runner/Pods-Runner-frameworks-${CONFIGURATION}-input-files.xcfilelist",
+			);
+			name = "[CP] Embed Pods Frameworks";
+			outputFileListPaths = (
+				"${PODS_ROOT}/Target Support Files/Pods-Runner/Pods-Runner-frameworks-${CONFIGURATION}-output-files.xcfilelist",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-Runner/Pods-Runner-frameworks.sh\"\n";
+			showEnvVarsInLog = 0;
 		};
 /* End PBXShellScriptBuildPhase section */
 

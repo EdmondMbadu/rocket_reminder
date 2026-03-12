@@ -542,7 +542,6 @@ class _BillingView extends StatelessWidget {
                 for (final line in const [
                   'Daily lock screens stay tied to your Rocket Goals account.',
                   'Your first invoice is 99 cents. Every renewal after that is 5 dollars monthly.',
-                  'Admins bypass billing automatically.',
                 ])
                   Padding(
                     padding: const EdgeInsets.only(bottom: 10),
