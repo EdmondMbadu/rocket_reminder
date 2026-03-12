@@ -467,9 +467,7 @@ class GoalLockController extends ChangeNotifier {
 
     _noticeMessage = 'Unlocked. Protect that one thing before the day drifts.';
     _errorMessage = null;
-    await _syncLatest();
-    await _persist();
-    notifyListeners();
+    await _saveLocallyThenSyncRemotely();
   }
 
   Future<void> submitMiddayCheck(bool onTrack) async {
@@ -495,9 +493,7 @@ class GoalLockController extends ChangeNotifier {
         ? 'You are still on it. Finish the day strong.'
         : 'Noted. Reset the next block and get back to the one thing.';
     _errorMessage = null;
-    await _syncLatest();
-    await _persist();
-    notifyListeners();
+    await _saveLocallyThenSyncRemotely();
   }
 
   Future<void> submitEveningReflection(bool didComplete) async {
@@ -523,9 +519,7 @@ class GoalLockController extends ChangeNotifier {
         ? 'Locked in. That counts.'
         : 'Honest answer recorded. Tomorrow starts fresh.';
     _errorMessage = null;
-    await _syncLatest();
-    await _persist();
-    notifyListeners();
+    await _saveLocallyThenSyncRemotely();
   }
 
   Future<void> updateSchedule({
@@ -540,10 +534,8 @@ class GoalLockController extends ChangeNotifier {
       focusWindowHours: focusWindowHours,
       armed: true,
     );
-    await _syncLatest();
-    await _persist();
     _noticeMessage = 'Schedule updated.';
-    notifyListeners();
+    await _saveLocallyThenSyncRemotely();
   }
 
   Future<void> updateGoal(String goal) async {
@@ -561,10 +553,10 @@ class GoalLockController extends ChangeNotifier {
     _setBusy(true);
     _clearMessages();
     _goalPlan = _goalPlan!.copyWith(goal: trimmedGoal, armed: true);
-    await _syncLatest();
+    _noticeMessage = 'Goal updated.';
     await _persist();
-    _noticeMessage ??= 'Goal updated.';
     _setBusy(false);
+    unawaited(_syncLatestInBackground());
   }
 
   Future<void> signOut() async {
@@ -648,6 +640,20 @@ class GoalLockController extends ChangeNotifier {
       debugPrintStack(stackTrace: stackTrace);
       _noticeMessage =
           'Saved locally. Rocket Goals sync hit an unexpected error.';
+    }
+  }
+
+  Future<void> _saveLocallyThenSyncRemotely() async {
+    await _persist();
+    notifyListeners();
+    unawaited(_syncLatestInBackground());
+  }
+
+  Future<void> _syncLatestInBackground() async {
+    await _syncLatest();
+    await _persist();
+    if (hasListeners) {
+      notifyListeners();
     }
   }
 
