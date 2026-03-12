@@ -34,14 +34,19 @@ class _GoalLockAppState extends State<GoalLockApp> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(_lifecycleObserver);
     widget.controller.initialize();
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(_lifecycleObserver);
     widget.controller.dispose();
     super.dispose();
   }
+
+  late final WidgetsBindingObserver _lifecycleObserver =
+      _GoalLockLifecycleObserver(widget.controller);
 
   @override
   Widget build(BuildContext context) {
@@ -60,6 +65,19 @@ class _GoalLockAppState extends State<GoalLockApp> {
         );
       },
     );
+  }
+}
+
+class _GoalLockLifecycleObserver extends WidgetsBindingObserver {
+  _GoalLockLifecycleObserver(this.controller);
+
+  final GoalLockController controller;
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      controller.refreshLockState();
+    }
   }
 }
 

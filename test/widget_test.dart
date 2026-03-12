@@ -3,18 +3,15 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:rocket_reminder/src/app.dart';
 import 'package:rocket_reminder/src/controller.dart';
-import 'package:rocket_reminder/src/goal_lock_notifications_base.dart';
 import 'package:rocket_reminder/src/local_cache_base.dart';
 import 'package:rocket_reminder/src/models.dart';
 import 'package:rocket_reminder/src/rocket_goals_bridge_base.dart';
 
 void main() {
   testWidgets('preview onboarding arms the app shell', (tester) async {
-    final notifications = _MemoryNotifications();
     final controller = GoalLockController(
       cache: _MemoryCache(),
       bridge: const _FakeBridge(),
-      notifications: notifications,
       now: () => DateTime(2026, 3, 7, 5, 30),
     );
 
@@ -55,11 +52,9 @@ void main() {
       commitments: const [],
     );
 
-    final notifications = _MemoryNotifications();
     final controller = GoalLockController(
       cache: _MemoryCache(seed: snapshot.toJson()),
       bridge: const _FakeBridge(),
-      notifications: notifications,
       now: () => DateTime(2026, 3, 7, 8),
     );
 
@@ -87,7 +82,6 @@ void main() {
       final controller = GoalLockController(
         cache: _MemoryCache(),
         bridge: bridge,
-        notifications: _MemoryNotifications(),
         now: () => DateTime(2026, 3, 7, 6),
       );
 
@@ -122,36 +116,34 @@ void main() {
     expect(plan.focusWindowHours, 16);
   });
 
-  test('arming a goal schedules the morning reminder', () async {
-    final notifications = _MemoryNotifications();
-    final controller = GoalLockController(
-      cache: _MemoryCache(),
-      bridge: const _ExplodingBridge(),
-      notifications: notifications,
-      now: () => DateTime(2026, 3, 7, 6),
-    );
+  test(
+    'arming a goal keeps the schedule locally without notifications',
+    () async {
+      final controller = GoalLockController(
+        cache: _MemoryCache(),
+        bridge: const _ExplodingBridge(),
+        now: () => DateTime(2026, 3, 7, 6),
+      );
 
-    await controller.initialize();
-    await controller.signIn(email: 'ava@rocket.test', password: 'secret123');
-    await controller.armGoalLock(
-      goal: 'Write my book',
-      morningLockMinutes: 7 * 60,
-      focusWindowHours: 14,
-    );
+      await controller.initialize();
+      await controller.signIn(email: 'ava@rocket.test', password: 'secret123');
+      await controller.armGoalLock(
+        goal: 'Write my book',
+        morningLockMinutes: 7 * 60,
+        focusWindowHours: 14,
+      );
 
-    expect(notifications.permissionRequests, 1);
-    expect(notifications.morningGoal, 'Write my book');
-    expect(notifications.morningLockMinutes, 7 * 60);
-  });
+      expect(controller.goalPlan?.goal, 'Write my book');
+      expect(controller.goalPlan?.morningLockMinutes, 7 * 60);
+    },
+  );
 
   test(
-    'submitting the morning one thing schedules the evening reflection',
+    'submitting the morning one thing prepares noon and evening checks in state',
     () async {
-      final notifications = _MemoryNotifications();
       final controller = GoalLockController(
         cache: _MemoryCache(),
         bridge: const _FakeBridge(),
-        notifications: notifications,
         now: () => DateTime(2026, 3, 7, 8),
       );
 
@@ -164,10 +156,8 @@ void main() {
       );
       await controller.submitMorningOneThing('Call 3 design partners');
 
-      expect(notifications.middayReminder?.oneThing, 'Call 3 design partners');
-      expect(notifications.middayReminder?.when, DateTime(2026, 3, 7, 12));
-      expect(notifications.eveningReminder?.oneThing, 'Call 3 design partners');
-      expect(notifications.eveningReminder?.when, DateTime(2026, 3, 7, 20));
+      expect(controller.todayCommitment?.oneThing, 'Call 3 design partners');
+      expect(controller.nextLockSummary(), 'Noon check-in at 12:00 PM.');
     },
   );
 
@@ -205,7 +195,6 @@ void main() {
     final controller = GoalLockController(
       cache: _MemoryCache(seed: snapshot.toJson()),
       bridge: const _FakeBridge(),
-      notifications: _MemoryNotifications(),
       now: () => DateTime(2026, 3, 7, 12, 15),
     );
 
@@ -222,12 +211,57 @@ void main() {
     expect(controller.todayCommitment?.middayOnTrack, isTrue);
   });
 
+  test('refreshing after resume re-evaluates due checks immediately', () async {
+    var now = DateTime(2026, 3, 7, 11, 59);
+    final controller = GoalLockController(
+      cache: _MemoryCache(
+        seed: GoalLockSnapshot(
+          account: const UserAccount(
+            userId: 'preview-user',
+            firstName: 'Ava',
+            lastName: 'Jordan',
+            email: 'ava@preview.rocket',
+            mode: ExperienceMode.preview,
+            emailVerified: true,
+          ),
+          goalPlan: GoalPlan(
+            goal: 'Launch my startup',
+            morningLockMinutes: 6 * 60,
+            focusWindowHours: 14,
+            createdAt: DateTime(2026, 3, 1),
+            armed: true,
+            importedFromRocketGoals: false,
+          ),
+          commitments: <DailyCommitment>[
+            DailyCommitment(
+              dateKey: '2026-03-07',
+              oneThing: 'Call 3 design partners',
+              committedAt: DateTime(2026, 3, 7, 8),
+              middayOnTrack: null,
+              middayCheckedAt: null,
+              didComplete: null,
+              reflectedAt: null,
+            ),
+          ],
+        ).toJson(),
+      ),
+      bridge: const _FakeBridge(),
+      now: () => now,
+    );
+
+    await controller.initialize();
+    expect(controller.lockPhase, LockPhase.unlocked);
+
+    now = DateTime(2026, 3, 7, 12, 1);
+    controller.refreshLockState();
+
+    expect(controller.lockPhase, LockPhase.noonLocked);
+  });
+
   test('updating the goal changes the title and reminder copy', () async {
-    final notifications = _MemoryNotifications();
     final controller = GoalLockController(
       cache: _MemoryCache(),
       bridge: const _FakeBridge(),
-      notifications: notifications,
       now: () => DateTime(2026, 3, 7, 8),
     );
 
@@ -241,7 +275,7 @@ void main() {
     await controller.updateGoal('Write my book');
 
     expect(controller.goalLabel, 'Write my book');
-    expect(notifications.morningGoal, 'Write my book');
+    expect(controller.goalPlan?.goal, 'Write my book');
   });
 }
 
@@ -335,56 +369,5 @@ class _ExplodingBridge extends _FakeBridge {
     DailyCommitment? latestCommitment,
   }) {
     throw ArgumentError.value('bad sync payload');
-  }
-}
-
-class _MemoryNotifications implements GoalLockNotifications {
-  int initializeCalls = 0;
-  int permissionRequests = 0;
-  int cancelCalls = 0;
-  String? morningGoal;
-  int? morningLockMinutes;
-  MiddayCheckInReminder? middayReminder;
-  EveningReflectionReminder? eveningReminder;
-
-  @override
-  Future<void> cancelAll() async {
-    cancelCalls += 1;
-    morningGoal = null;
-    morningLockMinutes = null;
-    middayReminder = null;
-    eveningReminder = null;
-  }
-
-  @override
-  Future<bool> ensurePermissions() async {
-    permissionRequests += 1;
-    return true;
-  }
-
-  @override
-  Future<void> initialize() async {
-    initializeCalls += 1;
-  }
-
-  @override
-  Future<void> scheduleEveningReflection(
-    EveningReflectionReminder reminder,
-  ) async {
-    eveningReminder = reminder;
-  }
-
-  @override
-  Future<void> scheduleMiddayCheckIn(MiddayCheckInReminder reminder) async {
-    middayReminder = reminder;
-  }
-
-  @override
-  Future<void> scheduleMorningLock({
-    required String goal,
-    required int morningLockMinutes,
-  }) async {
-    morningGoal = goal;
-    this.morningLockMinutes = morningLockMinutes;
   }
 }
