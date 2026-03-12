@@ -1,11 +1,11 @@
 {
-    "name": "rocket_reminder",
-    "short_name": "rocket_reminder",
+    "name": "Goal Lock",
+    "short_name": "Goal Lock",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
     "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "description": "Morning, noon, and evening accountability for your one thing.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

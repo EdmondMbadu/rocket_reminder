@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:rocket_reminder/src/app.dart';
-import 'package:rocket_reminder/src/controller.dart';
-import 'package:rocket_reminder/src/local_cache_base.dart';
-import 'package:rocket_reminder/src/models.dart';
-import 'package:rocket_reminder/src/rocket_goals_bridge_base.dart';
+import 'package:goal_lock/src/app.dart';
+import 'package:goal_lock/src/controller.dart';
+import 'package:goal_lock/src/local_cache_base.dart';
+import 'package:goal_lock/src/models.dart';
+import 'package:goal_lock/src/rocket_goals_bridge_base.dart';
 
 void main() {
   testWidgets('preview onboarding arms the app shell', (tester) async {
@@ -28,7 +28,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Write my book'), findsWidgets);
-    expect(find.text('Rocket Reminder'), findsOneWidget);
+    expect(find.text('Goal Lock'), findsOneWidget);
   });
 
   testWidgets('morning lock accepts one thing and unlocks', (tester) async {

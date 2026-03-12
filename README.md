@@ -1,4 +1,4 @@
-# rocket_reminder
+# Goal Lock
 
 Goal Lock mobile app for Rocket Goals.
 

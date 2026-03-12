@@ -1,4 +1,4 @@
-package com.example.rocket_reminder
+package com.example.goal_lock
 
 import io.flutter.embedding.android.FlutterActivity
 

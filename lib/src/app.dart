@@ -55,7 +55,7 @@ class _GoalLockAppState extends State<GoalLockApp> {
       builder: (context, _) {
         return MaterialApp(
           debugShowCheckedModeBanner: false,
-          title: 'Rocket Reminder',
+          title: 'Goal Lock',
           theme: _buildTheme(Brightness.light),
           darkTheme: _buildTheme(Brightness.dark),
           themeMode: widget.controller.isDarkMode
@@ -352,7 +352,7 @@ class _AuthViewState extends State<_AuthView> {
                 const _RocketBadge(size: 56),
                 const SizedBox(height: 16),
                 Text(
-                  'Rocket Reminder',
+                  'Goal Lock',
                   style: Theme.of(context).textTheme.headlineLarge,
                 ),
                 const SizedBox(height: 8),
@@ -670,7 +670,7 @@ class _ActiveView extends StatelessWidget {
                   const _RocketBadge(size: 32),
                   const SizedBox(width: 10),
                   Text(
-                    'Rocket Reminder',
+                    'Goal Lock',
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
                       color: onBg.withValues(alpha: 0.5),
                       fontWeight: FontWeight.w800,
