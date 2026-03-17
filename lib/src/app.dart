@@ -402,7 +402,7 @@ class _WelcomeOnboardingViewState extends State<_WelcomeOnboardingView>
 
     // Move to lock animation screen
     setState(() {
-      _step = 4;
+      _step = 5;
       _shackleClosed = false;
       _showLockedIn = false;
       _showSubtext = false;
@@ -497,8 +497,8 @@ class _WelcomeOnboardingViewState extends State<_WelcomeOnboardingView>
                   curve: Curves.easeOutCubic,
                   child: switch (_step) {
                     0 => _buildHookScreen(context),
-                    1 => _buildHowItWorksScreen(context),
-                    2 => _buildGoalInputScreen(context),
+                    1 => _buildGoalInputScreen(context),
+                    2 => _buildHowItWorksScreen(context),
                     3 => _buildDeviceSetupScreen(context),
                     4 => _buildAuthGateScreen(context),
                     5 => _buildLockScreen(context),
@@ -535,34 +535,54 @@ class _WelcomeOnboardingViewState extends State<_WelcomeOnboardingView>
             color: _onboardingAccent,
           ),
         ),
-        const SizedBox(height: 24),
+        const SizedBox(height: 6),
         Text(
-          'One goal.\nThree check-ins.\nEvery day.',
+          'Dead simple.\nUnbelievably powerful.',
           textAlign: TextAlign.center,
           style: TextStyle(
-            fontSize: 28,
+            fontSize: 18,
             fontWeight: FontWeight.w900,
-            height: 1.15,
-            letterSpacing: -0.8,
+            letterSpacing: -0.3,
             color: textPrimary,
           ),
         ),
-        const SizedBox(height: 18),
+        const SizedBox(height: 24),
+        _NumberedStep(number: '1', before: 'Pick ', highlight: 'ONE GOAL', after: '.', textPrimary: textPrimary),
+        const SizedBox(height: 14),
+        _NumberedStep(number: '2', before: 'Lock ', highlight: 'YOUR APPS', after: '.', textPrimary: textPrimary),
+        const SizedBox(height: 14),
+        _NumberedStep(number: '3', before: 'Check-in ', highlight: 'EVERYDAY', after: '.', textPrimary: textPrimary),
+        const SizedBox(height: 14),
+        _NumberedStep(number: '4', before: 'Build ', highlight: '', after: '', textPrimary: textPrimary),
+        Center(
+          child: Text(
+            'UNSTOPPABLE\nMOMENTUM.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 30,
+              fontWeight: FontWeight.w900,
+              height: 1.1,
+              letterSpacing: 1.0,
+              color: _onboardingAccent,
+            ),
+          ),
+        ),
+        const SizedBox(height: 32),
+        _OnboardingButton(label: 'Get started', onPressed: _goNext),
+        const SizedBox(height: 20),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 8),
           child: Text(
             'No sprawling lists. No complicated systems. Just your goal — and us holding you to it, morning to night.',
             textAlign: TextAlign.center,
             style: TextStyle(
-              fontSize: 15,
+              fontSize: 14,
               height: 1.55,
               fontWeight: FontWeight.w500,
               color: textSecondary,
             ),
           ),
         ),
-        const SizedBox(height: 32),
-        _OnboardingButton(label: 'Get started', onPressed: _goNext),
         const SizedBox(height: 8),
       ],
     );
@@ -584,7 +604,7 @@ class _WelcomeOnboardingViewState extends State<_WelcomeOnboardingView>
       children: [
         Center(
           child: Text(
-            'Here\'s how your day works',
+            'Build Daily Momentum',
             style: TextStyle(
               fontSize: 22,
               fontWeight: FontWeight.w900,
@@ -652,7 +672,7 @@ class _WelcomeOnboardingViewState extends State<_WelcomeOnboardingView>
           ),
         ),
         const SizedBox(height: 32),
-        _OnboardingButton(label: 'Set my goal', onPressed: _goNext),
+        _OnboardingButton(label: 'Next', onPressed: _goNext),
       ],
     );
   }
@@ -670,13 +690,37 @@ class _WelcomeOnboardingViewState extends State<_WelcomeOnboardingView>
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'What\'s the one goal you\'re committing to?',
-          style: TextStyle(
-            fontSize: 21,
-            fontWeight: FontWeight.w900,
-            letterSpacing: -0.5,
-            color: textPrimary,
+        Text.rich(
+          TextSpan(
+            children: [
+              TextSpan(
+                text: 'What\'s the ',
+                style: TextStyle(
+                  fontSize: 21,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: -0.5,
+                  color: textPrimary,
+                ),
+              ),
+              TextSpan(
+                text: 'ONE GOAL',
+                style: TextStyle(
+                  fontSize: 26,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 0.5,
+                  color: _onboardingAccent,
+                ),
+              ),
+              TextSpan(
+                text: ' you\'re committing to?',
+                style: TextStyle(
+                  fontSize: 21,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: -0.5,
+                  color: textPrimary,
+                ),
+              ),
+            ],
           ),
         ),
         const SizedBox(height: 8),
@@ -854,7 +898,45 @@ class _WelcomeOnboardingViewState extends State<_WelcomeOnboardingView>
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        // Sign up / Sign in toggle at top
+        Text.rich(
+          TextSpan(
+            children: [
+              TextSpan(
+                text: _isSignUp
+                    ? 'Create an account to track your '
+                    : 'Sign in to continue your ',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  height: 1.35,
+                  color: textPrimary,
+                ),
+              ),
+              TextSpan(
+                text: _isSignUp ? 'streak' : 'streak',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w900,
+                  color: _onboardingAccent,
+                ),
+              ),
+              TextSpan(
+                text: _isSignUp
+                    ? ' and lock in your progress.'
+                    : ' and stay locked in.',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  height: 1.35,
+                  color: textPrimary,
+                ),
+              ),
+            ],
+          ),
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: 24),
+        // Sign up / Sign in toggle
         _ModeSwitch(
           authMode: _isSignUp ? AuthMode.signUp : AuthMode.signIn,
           onChanged: (mode) => setState(() {
@@ -1544,6 +1626,73 @@ class _AndroidAppPickerSheetState extends State<_AndroidAppPickerSheet> {
   }
 }
 
+class _NumberedStep extends StatelessWidget {
+  const _NumberedStep({
+    required this.number,
+    required this.before,
+    required this.highlight,
+    required this.after,
+    required this.textPrimary,
+  });
+
+  final String number;
+  final String before;
+  final String highlight;
+  final String after;
+  final Color textPrimary;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.baseline,
+      textBaseline: TextBaseline.alphabetic,
+      children: [
+        Text(
+          '$number. ',
+          style: TextStyle(
+            fontSize: 26,
+            fontWeight: FontWeight.w900,
+            color: textPrimary.withValues(alpha: 0.35),
+          ),
+        ),
+        Text.rich(
+          TextSpan(
+            children: [
+              TextSpan(
+                text: before,
+                style: TextStyle(
+                  fontSize: 26,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: -0.6,
+                  color: textPrimary,
+                ),
+              ),
+              TextSpan(
+                text: highlight,
+                style: const TextStyle(
+                  fontSize: 26,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 0.5,
+                  color: _onboardingAccent,
+                ),
+              ),
+              TextSpan(
+                text: after,
+                style: TextStyle(
+                  fontSize: 26,
+                  fontWeight: FontWeight.w900,
+                  color: textPrimary,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class _TimelineItem extends StatelessWidget {
   const _TimelineItem({
     required this.emoji,
@@ -1882,7 +2031,7 @@ class _BillingView extends StatelessWidget {
                 const Center(child: _RocketBadge(size: 52)),
                 const SizedBox(height: 24),
                 Text(
-                  'Unlock Goal Lock',
+                  'Launch Goal Lock',
                   style: Theme.of(context).textTheme.headlineLarge,
                 ),
                 const SizedBox(height: 10),
@@ -1917,6 +2066,7 @@ class _BillingView extends StatelessWidget {
                 ),
                 const SizedBox(height: 20),
                 for (final line in const [
+                  'Research shows it takes 66 days to build a lasting habit. Goal Lock keeps you locked in for the full journey.',
                   'Daily lock screens stay tied to your Rocket Goals account.',
                   'Your first invoice is 99 cents. Every renewal after that is 5 dollars monthly.',
                 ])
@@ -1985,7 +2135,7 @@ class _BillingView extends StatelessWidget {
                             color: Colors.white,
                           ),
                         )
-                      : const Text('Pay and unlock'),
+                      : const Text('Lock-in My Goal'),
                 ),
                 const SizedBox(height: 12),
                 OutlinedButton(
