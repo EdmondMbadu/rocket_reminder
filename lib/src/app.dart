@@ -1644,6 +1644,7 @@ class _NumberedStep extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Text.rich(
+      textAlign: TextAlign.center,
       TextSpan(
         children: [
           TextSpan(
@@ -1682,7 +1683,6 @@ class _NumberedStep extends StatelessWidget {
           ),
         ],
       ),
-      textAlign: TextAlign.center,
     );
   }
 }
