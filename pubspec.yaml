@@ -50,7 +50,7 @@ dev_dependencies:
 flutter_launcher_icons:
   android: true
   ios: true
-  image_path: assets/branding/rocket-goals-web-logo.png
+  image_path: assets/branding/goal-lock.jpg
   remove_alpha_ios: true
 
 # For information on the generic Dart part of this file, see the

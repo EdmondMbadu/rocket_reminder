@@ -3369,7 +3369,7 @@ class _RocketBadge extends StatelessWidget {
     return SizedBox(
       height: size,
       child: Image.asset(
-        'assets/branding/rocket-goals-web-logo.png',
+        'assets/branding/goal-lock.jpg',
         fit: BoxFit.contain,
         filterQuality: FilterQuality.high,
       ),
