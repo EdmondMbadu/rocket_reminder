@@ -43,6 +43,7 @@ class GoalLockController extends ChangeNotifier {
   bool _isReady = false;
   bool _isBusy = false;
   bool _isDarkMode = false;
+  bool _holdOnboarding = false;
   AuthMode _authMode = AuthMode.signIn;
   AppTab _currentTab = AppTab.today;
   String? _errorMessage;
@@ -54,6 +55,7 @@ class GoalLockController extends ChangeNotifier {
   bool get isReady => _isReady;
   bool get isBusy => _isBusy;
   bool get isDarkMode => _isDarkMode;
+  bool get holdOnboarding => _holdOnboarding;
   AuthMode get authMode => _authMode;
   AppTab get currentTab => _currentTab;
   String? get errorMessage => _errorMessage;
@@ -85,7 +87,7 @@ class GoalLockController extends ChangeNotifier {
     if (!_isReady) {
       return LockPhase.loading;
     }
-    if (_account == null) {
+    if (_account == null || _holdOnboarding) {
       return LockPhase.auth;
     }
     if (requiresBilling) {
@@ -223,6 +225,11 @@ class GoalLockController extends ChangeNotifier {
 
   void selectTab(AppTab tab) {
     _currentTab = tab;
+    notifyListeners();
+  }
+
+  void setHoldOnboarding(bool value) {
+    _holdOnboarding = value;
     notifyListeners();
   }
 

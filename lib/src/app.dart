@@ -240,7 +240,9 @@ class GoalLockRoot extends StatelessWidget {
                 key: ValueKey(phase),
                 child: switch (phase) {
                   LockPhase.loading => const _LoadingView(),
-                  LockPhase.auth => _AuthView(controller: controller),
+                  LockPhase.auth => _WelcomeOnboardingView(
+                    controller: controller,
+                  ),
                   LockPhase.billing => _BillingView(controller: controller),
                   LockPhase.onboarding => _OnboardingView(
                     controller: controller,
@@ -300,7 +302,1029 @@ class _LoadingView extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Auth
+// Welcome Onboarding (5-screen flow for new users)
+// ---------------------------------------------------------------------------
+
+const _onboardingAccent = _brandRed;
+
+class _WelcomeOnboardingView extends StatefulWidget {
+  const _WelcomeOnboardingView({required this.controller});
+
+  final GoalLockController controller;
+
+  @override
+  State<_WelcomeOnboardingView> createState() =>
+      _WelcomeOnboardingViewState();
+}
+
+class _WelcomeOnboardingViewState extends State<_WelcomeOnboardingView>
+    with TickerProviderStateMixin {
+  int _step = 0; // 0..4 for screens 1..5
+  String _goalText = '';
+  bool _isSignUp = true;
+  bool _resetSent = false;
+
+  // Auth form controllers
+  late final TextEditingController _firstNameCtl;
+  late final TextEditingController _lastNameCtl;
+  late final TextEditingController _emailCtl;
+  late final TextEditingController _passwordCtl;
+  late final TextEditingController _goalCtl;
+
+  // Lock animation state
+  bool _shackleClosed = false;
+  bool _showLockedIn = false;
+  bool _showSubtext = false;
+  bool _showFinalCta = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _firstNameCtl = TextEditingController();
+    _lastNameCtl = TextEditingController();
+    _emailCtl = TextEditingController();
+    _passwordCtl = TextEditingController();
+    _goalCtl = TextEditingController();
+    _goalCtl.addListener(() {
+      setState(() => _goalText = _goalCtl.text);
+    });
+  }
+
+  @override
+  void dispose() {
+    _firstNameCtl.dispose();
+    _lastNameCtl.dispose();
+    _emailCtl.dispose();
+    _passwordCtl.dispose();
+    _goalCtl.dispose();
+    super.dispose();
+  }
+
+  void _goNext() {
+    if (_step < 4) setState(() => _step += 1);
+  }
+
+  void _goBack() {
+    if (_step > 0) setState(() => _step -= 1);
+  }
+
+  Future<void> _completeAuth() async {
+    // Hold the onboarding view open during lock animation
+    widget.controller.setHoldOnboarding(true);
+
+    // Move to lock animation screen
+    setState(() => _step = 4);
+
+    // Start the lock animation sequence
+    _runLockAnimation();
+
+    // Arm the goal in the background
+    await widget.controller.armGoalLock(
+      goal: _goalText.trim(),
+      morningLockMinutes: 6 * 60 + 30, // default 6:30 AM
+      focusWindowHours: 14,
+    );
+  }
+
+  void _runLockAnimation() {
+    Future.delayed(const Duration(milliseconds: 400), () {
+      if (!mounted) return;
+      setState(() => _shackleClosed = true);
+    });
+    Future.delayed(const Duration(milliseconds: 900), () {
+      if (!mounted) return;
+      setState(() => _showLockedIn = true);
+    });
+    Future.delayed(const Duration(milliseconds: 1100), () {
+      if (!mounted) return;
+      setState(() => _showSubtext = true);
+    });
+    Future.delayed(const Duration(milliseconds: 1400), () {
+      if (!mounted) return;
+      setState(() => _showFinalCta = true);
+    });
+  }
+
+  void _finishOnboarding() {
+    widget.controller.setHoldOnboarding(false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final dark = _isDark(context);
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(24, 32, 24, 40),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 420),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Progress dots
+              _OnboardingDots(current: _step, total: 5),
+              const SizedBox(height: 20),
+              // Back button row
+              if (_step > 0 && _step < 4)
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: GestureDetector(
+                    onTap: _goBack,
+                    child: Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.arrow_back_ios_rounded,
+                            size: 16,
+                            color: dark ? _brandMist : _brandSmoke,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            'Back',
+                            style: TextStyle(
+                              color: dark ? _brandMist : _brandSmoke,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              _GlassPanel(
+                padding: const EdgeInsets.all(28),
+                child: AnimatedSize(
+                  duration: const Duration(milliseconds: 300),
+                  curve: Curves.easeOutCubic,
+                  child: switch (_step) {
+                    0 => _buildHookScreen(context),
+                    1 => _buildHowItWorksScreen(context),
+                    2 => _buildGoalInputScreen(context),
+                    3 => _buildAuthGateScreen(context),
+                    4 => _buildLockScreen(context),
+                    _ => const SizedBox.shrink(),
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ── Screen 1: Hook ──
+
+  Widget _buildHookScreen(BuildContext context) {
+    final dark = _isDark(context);
+    final textPrimary = dark ? _brandWhite : const Color(0xFF1A1816);
+    final textSecondary = dark ? _brandMist : const Color(0xFF8A8480);
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const SizedBox(height: 12),
+        Text(
+          'GOAL LOCK',
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 3.0,
+            color: _onboardingAccent,
+          ),
+        ),
+        const SizedBox(height: 24),
+        Text(
+          'One goal.\nThree check-ins.\nEvery day.',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 28,
+            fontWeight: FontWeight.w900,
+            height: 1.15,
+            letterSpacing: -0.8,
+            color: textPrimary,
+          ),
+        ),
+        const SizedBox(height: 18),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          child: Text(
+            'No sprawling lists. No complicated systems. Just your goal — and us holding you to it, morning to night.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 15,
+              height: 1.55,
+              fontWeight: FontWeight.w500,
+              color: textSecondary,
+            ),
+          ),
+        ),
+        const SizedBox(height: 32),
+        _OnboardingButton(
+          label: 'Get started',
+          onPressed: _goNext,
+        ),
+        const SizedBox(height: 8),
+      ],
+    );
+  }
+
+  // ── Screen 2: How It Works ──
+
+  Widget _buildHowItWorksScreen(BuildContext context) {
+    final dark = _isDark(context);
+    final textPrimary = dark ? _brandWhite : const Color(0xFF1A1816);
+    final textSecondary = dark ? _brandMist : const Color(0xFF8A8480);
+    final lineColor = dark
+        ? Colors.white.withValues(alpha: 0.12)
+        : Colors.black.withValues(alpha: 0.10);
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Center(
+          child: Text(
+            'Here\'s how your day works',
+            style: TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.w900,
+              letterSpacing: -0.6,
+              color: textPrimary,
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Center(
+          child: Text(
+            'Three moments. That\'s the whole system.',
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+              color: textSecondary,
+            ),
+          ),
+        ),
+        const SizedBox(height: 28),
+        // Timeline
+        IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Vertical line
+              SizedBox(
+                width: 40,
+                child: Center(
+                  child: Container(
+                    width: 2,
+                    color: lineColor,
+                  ),
+                ),
+              ),
+              // Timeline items
+              Expanded(
+                child: Column(
+                  children: [
+                    _TimelineItem(
+                      emoji: '\u2600\uFE0F',
+                      title: 'Morning',
+                      description:
+                          'Tell us your one action — the single move that advances your goal today.',
+                      textPrimary: textPrimary,
+                      textSecondary: textSecondary,
+                    ),
+                    const SizedBox(height: 24),
+                    _TimelineItem(
+                      emoji: '\u26A1',
+                      title: 'Midday',
+                      description:
+                          'Quick pulse check. Are you on track? We nudge you back if you\'ve drifted.',
+                      textPrimary: textPrimary,
+                      textSecondary: textSecondary,
+                    ),
+                    const SizedBox(height: 24),
+                    _TimelineItem(
+                      emoji: '\uD83C\uDF19',
+                      title: 'Evening',
+                      description:
+                          'Did you do it? Honest answer. No judgment — just truth and a streak.',
+                      textPrimary: textPrimary,
+                      textSecondary: textSecondary,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 32),
+        _OnboardingButton(
+          label: 'Set my goal',
+          onPressed: _goNext,
+        ),
+      ],
+    );
+  }
+
+  // ── Screen 3: Goal Input ──
+
+  Widget _buildGoalInputScreen(BuildContext context) {
+    final dark = _isDark(context);
+    final textPrimary = dark ? _brandWhite : const Color(0xFF1A1816);
+    final textSecondary = dark ? _brandMist : const Color(0xFF8A8480);
+    final charCount = _goalText.length;
+    final canContinue = _goalText.trim().length >= 5;
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'What\'s the one goal you\'re committing to?',
+          style: TextStyle(
+            fontSize: 21,
+            fontWeight: FontWeight.w900,
+            letterSpacing: -0.5,
+            color: textPrimary,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'Be specific. Ambitious. Real.',
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+            color: textSecondary,
+          ),
+        ),
+        const SizedBox(height: 20),
+        // Example pills
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (final example in const [
+              'Run a half marathon',
+              'Launch my SaaS by June',
+              'Write my first novel',
+              'Get to 10% body fat',
+            ])
+              GestureDetector(
+                onTap: () {
+                  _goalCtl.text = example;
+                  _goalCtl.selection = TextSelection.fromPosition(
+                    TextPosition(offset: example.length),
+                  );
+                },
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(20),
+                    color: dark
+                        ? Colors.white.withValues(alpha: 0.07)
+                        : Colors.black.withValues(alpha: 0.04),
+                    border: Border.all(
+                      color: dark
+                          ? Colors.white.withValues(alpha: 0.10)
+                          : Colors.black.withValues(alpha: 0.08),
+                    ),
+                  ),
+                  child: Text(
+                    example,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: textPrimary,
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+        const SizedBox(height: 20),
+        // Textarea
+        TextField(
+          controller: _goalCtl,
+          maxLength: 120,
+          maxLines: 3,
+          minLines: 2,
+          textCapitalization: TextCapitalization.sentences,
+          decoration: InputDecoration(
+            hintText: 'Your goal...',
+            counterText: '$charCount / 120',
+            counterStyle: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: charCount > 100
+                  ? _brandRed
+                  : (dark ? _brandSmoke : const Color(0xFF8A8480)),
+            ),
+          ),
+        ),
+        const SizedBox(height: 20),
+        _OnboardingButton(
+          label: 'Continue \u2192',
+          onPressed: canContinue ? _goNext : null,
+        ),
+      ],
+    );
+  }
+
+  // ── Screen 4: Auth Gate ──
+
+  Widget _buildAuthGateScreen(BuildContext context) {
+    final dark = _isDark(context);
+    final textPrimary = dark ? _brandWhite : const Color(0xFF1A1816);
+    final textSecondary = dark ? _brandMist : const Color(0xFF8A8480);
+    final overlay = dark ? Colors.white : Colors.black;
+
+    final firstName = _firstNameCtl.text.trim();
+    final lastName = _lastNameCtl.text.trim();
+    final email = _emailCtl.text.trim();
+    final password = _passwordCtl.text;
+    final hasAt = email.contains('@');
+
+    final signUpValid = firstName.isNotEmpty &&
+        lastName.isNotEmpty &&
+        hasAt &&
+        password.length >= 8;
+    final signInValid = hasAt && password.length >= 6;
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Google button
+        SizedBox(
+          width: double.infinity,
+          height: 52,
+          child: OutlinedButton(
+            onPressed: widget.controller.isBusy
+                ? null
+                : () async {
+                    // Google sign-in placeholder — for now goes to preview
+                    await widget.controller.continueInPreview();
+                    await _completeAuth();
+                  },
+            style: OutlinedButton.styleFrom(
+              side: BorderSide(
+                color: overlay.withValues(alpha: dark ? 0.18 : 0.15),
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(24),
+              ),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                // Google "G" logo via text
+                Container(
+                  width: 22,
+                  height: 22,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: overlay.withValues(alpha: 0.15),
+                    ),
+                  ),
+                  child: Center(
+                    child: Text(
+                      'G',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w900,
+                        color: textPrimary,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Text(
+                  'Continue with Google',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: textPrimary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 20),
+        // "or" divider
+        Row(
+          children: [
+            Expanded(
+              child: Container(
+                height: 1,
+                color: overlay.withValues(alpha: 0.08),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Text(
+                'or',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: textSecondary,
+                ),
+              ),
+            ),
+            Expanded(
+              child: Container(
+                height: 1,
+                color: overlay.withValues(alpha: 0.08),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 20),
+        // Sign up name fields
+        if (_isSignUp) ...[
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _firstNameCtl,
+                  textCapitalization: TextCapitalization.words,
+                  onChanged: (_) => setState(() {}),
+                  decoration: const InputDecoration(hintText: 'First name'),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: TextField(
+                  controller: _lastNameCtl,
+                  textCapitalization: TextCapitalization.words,
+                  onChanged: (_) => setState(() {}),
+                  decoration: const InputDecoration(hintText: 'Last name'),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+        ],
+        TextField(
+          controller: _emailCtl,
+          keyboardType: TextInputType.emailAddress,
+          onChanged: (_) => setState(() {}),
+          decoration: const InputDecoration(hintText: 'Email'),
+        ),
+        const SizedBox(height: 14),
+        TextField(
+          controller: _passwordCtl,
+          obscureText: true,
+          onChanged: (_) => setState(() {}),
+          decoration: InputDecoration(
+            hintText: _isSignUp ? 'Password (8+ characters)' : 'Password',
+          ),
+        ),
+        const SizedBox(height: 20),
+        _OnboardingButton(
+          label: _isSignUp
+              ? 'Create account & lock goal'
+              : 'Sign in & lock goal',
+          onPressed: widget.controller.isBusy
+              ? null
+              : (_isSignUp ? signUpValid : signInValid)
+                  ? () async {
+                      if (_isSignUp) {
+                        await widget.controller.signUp(
+                          firstName: _firstNameCtl.text,
+                          lastName: _lastNameCtl.text,
+                          email: _emailCtl.text,
+                          password: _passwordCtl.text,
+                        );
+                      } else {
+                        await widget.controller.signIn(
+                          email: _emailCtl.text,
+                          password: _passwordCtl.text,
+                        );
+                      }
+                      // If auth succeeded (account exists now), go to lock screen
+                      if (widget.controller.account != null) {
+                        await _completeAuth();
+                      }
+                    }
+                  : null,
+          isLoading: widget.controller.isBusy,
+        ),
+        const SizedBox(height: 16),
+        // Toggle / Forgot password
+        if (_isSignUp)
+          GestureDetector(
+            onTap: () => setState(() {
+              _isSignUp = false;
+              _resetSent = false;
+            }),
+            child: Text(
+              'Already have an account? Sign in',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: _onboardingAccent,
+              ),
+            ),
+          )
+        else
+          Column(
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  GestureDetector(
+                    onTap: () => setState(() => _isSignUp = true),
+                    child: Text(
+                      'No account? Create one',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: _onboardingAccent,
+                      ),
+                    ),
+                  ),
+                  Text(
+                    '  \u00B7  ',
+                    style: TextStyle(color: textSecondary),
+                  ),
+                  GestureDetector(
+                    onTap: () async {
+                      if (_emailCtl.text.trim().contains('@')) {
+                        await widget.controller
+                            .requestPasswordReset(_emailCtl.text);
+                        setState(() => _resetSent = true);
+                      }
+                    },
+                    child: Text(
+                      'Forgot password?',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: _onboardingAccent,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              if (_resetSent) ...[
+                const SizedBox(height: 10),
+                Text(
+                  'Reset link sent — check your inbox.',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: _onboardingAccent,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        if (!kReleaseMode) ...[
+          const SizedBox(height: 12),
+          TextButton(
+            onPressed: widget.controller.isBusy
+                ? null
+                : () async {
+                    await widget.controller.continueInPreview();
+                    if (widget.controller.account != null) {
+                      await _completeAuth();
+                    }
+                  },
+            child: Text(
+              'Skip — preview without account',
+              style: TextStyle(
+                color: textSecondary.withValues(alpha: 0.6),
+                fontWeight: FontWeight.w600,
+                fontSize: 12,
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  // ── Screen 5: Lock Animation ──
+
+  Widget _buildLockScreen(BuildContext context) {
+    final dark = _isDark(context);
+    final textPrimary = dark ? _brandWhite : const Color(0xFF1A1816);
+    final textSecondary = dark ? _brandMist : const Color(0xFF8A8480);
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const SizedBox(height: 20),
+        // Padlock
+        SizedBox(
+          width: 100,
+          height: 120,
+          child: CustomPaint(
+            painter: _PadlockPainter(
+              closed: _shackleClosed,
+              color: _onboardingAccent,
+              dark: dark,
+            ),
+          ),
+        ),
+        const SizedBox(height: 24),
+        // Goal text in curly quotes
+        Text(
+          '\u201C${_goalText.trim()}\u201D',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 17,
+            fontWeight: FontWeight.w500,
+            fontStyle: FontStyle.italic,
+            height: 1.45,
+            color: textSecondary,
+          ),
+        ),
+        const SizedBox(height: 28),
+        // "Locked in." — fades up
+        AnimatedOpacity(
+          opacity: _showLockedIn ? 1.0 : 0.0,
+          duration: const Duration(milliseconds: 400),
+          child: AnimatedSlide(
+            offset: _showLockedIn ? Offset.zero : const Offset(0, 0.15),
+            duration: const Duration(milliseconds: 400),
+            curve: Curves.easeOut,
+            child: Text(
+              'Locked in.',
+              style: TextStyle(
+                fontSize: 26,
+                fontWeight: FontWeight.w900,
+                letterSpacing: -0.6,
+                color: textPrimary,
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 10),
+        // Subtext
+        AnimatedOpacity(
+          opacity: _showSubtext ? 1.0 : 0.0,
+          duration: const Duration(milliseconds: 400),
+          child: Text(
+            'Your goal is saved. We\'ll see you in the morning.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+              color: textSecondary,
+            ),
+          ),
+        ),
+        const SizedBox(height: 28),
+        // Final CTA
+        AnimatedOpacity(
+          opacity: _showFinalCta ? 1.0 : 0.0,
+          duration: const Duration(milliseconds: 400),
+          child: _OnboardingButton(
+            label: 'Start tomorrow morning \u2192',
+            onPressed: _showFinalCta ? _finishOnboarding : null,
+          ),
+        ),
+        const SizedBox(height: 12),
+      ],
+    );
+  }
+}
+
+// ── Onboarding helper widgets ──
+
+class _OnboardingDots extends StatelessWidget {
+  const _OnboardingDots({required this.current, required this.total});
+
+  final int current;
+  final int total;
+
+  @override
+  Widget build(BuildContext context) {
+    final dark = _isDark(context);
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: List.generate(total, (index) {
+        final active = index <= current;
+        return AnimatedContainer(
+          duration: const Duration(milliseconds: 300),
+          margin: const EdgeInsets.symmetric(horizontal: 4),
+          width: active ? 10 : 8,
+          height: active ? 10 : 8,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: active
+                ? _onboardingAccent
+                : (dark
+                    ? Colors.white.withValues(alpha: 0.15)
+                    : Colors.black.withValues(alpha: 0.10)),
+          ),
+        );
+      }),
+    );
+  }
+}
+
+class _OnboardingButton extends StatelessWidget {
+  const _OnboardingButton({
+    required this.label,
+    required this.onPressed,
+    this.isLoading = false,
+  });
+
+  final String label;
+  final VoidCallback? onPressed;
+  final bool isLoading;
+
+  @override
+  Widget build(BuildContext context) {
+    final enabled = onPressed != null && !isLoading;
+    return SizedBox(
+      width: double.infinity,
+      height: 54,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(24),
+          color: enabled ? _onboardingAccent : Colors.grey.shade400,
+        ),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: enabled ? onPressed : null,
+            borderRadius: BorderRadius.circular(24),
+            child: Center(
+              child: isLoading
+                  ? const SizedBox(
+                      width: 22,
+                      height: 22,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2.2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : Text(
+                      label,
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.3,
+                        color: enabled
+                            ? Colors.white
+                            : Colors.white.withValues(alpha: 0.6),
+                      ),
+                    ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _TimelineItem extends StatelessWidget {
+  const _TimelineItem({
+    required this.emoji,
+    required this.title,
+    required this.description,
+    required this.textPrimary,
+    required this.textSecondary,
+  });
+
+  final String emoji;
+  final String title;
+  final String description;
+  final Color textPrimary;
+  final Color textSecondary;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(emoji, style: const TextStyle(fontSize: 22)),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                  color: textPrimary,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                description,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  height: 1.45,
+                  color: textSecondary,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ── Padlock painter ──
+
+class _PadlockPainter extends CustomPainter {
+  _PadlockPainter({
+    required this.closed,
+    required this.color,
+    required this.dark,
+  });
+
+  final bool closed;
+  final Color color;
+  final bool dark;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final bodyPaint = Paint()
+      ..color = color
+      ..style = PaintingStyle.fill;
+
+    final shacklePaint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 5
+      ..strokeCap = StrokeCap.round;
+
+    // Body (rounded rect at bottom)
+    final bodyRect = RRect.fromRectAndRadius(
+      Rect.fromLTWH(
+        size.width * 0.18,
+        size.height * 0.45,
+        size.width * 0.64,
+        size.height * 0.50,
+      ),
+      const Radius.circular(12),
+    );
+    canvas.drawRRect(bodyRect, bodyPaint);
+
+    // Keyhole
+    final keyholeCenter = Offset(size.width * 0.5, size.height * 0.65);
+    final keyholePaint = Paint()
+      ..color = dark ? _brandBlack : _brandWhite
+      ..style = PaintingStyle.fill;
+    canvas.drawCircle(keyholeCenter, 6, keyholePaint);
+    final keyholePath = Path()
+      ..moveTo(keyholeCenter.dx - 3, keyholeCenter.dy + 4)
+      ..lineTo(keyholeCenter.dx + 3, keyholeCenter.dy + 4)
+      ..lineTo(keyholeCenter.dx + 2, keyholeCenter.dy + 14)
+      ..lineTo(keyholeCenter.dx - 2, keyholeCenter.dy + 14)
+      ..close();
+    canvas.drawPath(keyholePath, keyholePaint);
+
+    // Shackle (U-shape)
+    final shackleTop = closed ? size.height * 0.12 : size.height * 0.0;
+    final shackleLeft = size.width * 0.30;
+    final shackleRight = size.width * 0.70;
+    final shackleBottom = size.height * 0.50;
+
+    final shacklePath = Path()
+      ..moveTo(shackleLeft, shackleBottom)
+      ..lineTo(shackleLeft, shackleTop + 14)
+      ..quadraticBezierTo(
+        shackleLeft,
+        shackleTop,
+        shackleLeft + 14,
+        shackleTop,
+      )
+      ..lineTo(shackleRight - 14, shackleTop)
+      ..quadraticBezierTo(
+        shackleRight,
+        shackleTop,
+        shackleRight,
+        shackleTop + 14,
+      )
+      ..lineTo(shackleRight, shackleBottom);
+
+    canvas.drawPath(shacklePath, shacklePaint);
+  }
+
+  @override
+  bool shouldRepaint(_PadlockPainter oldDelegate) =>
+      closed != oldDelegate.closed ||
+      color != oldDelegate.color ||
+      dark != oldDelegate.dark;
+}
+
+// ---------------------------------------------------------------------------
+// Auth (legacy — kept for returning users who need to re-authenticate)
 // ---------------------------------------------------------------------------
 
 class _AuthView extends StatefulWidget {
