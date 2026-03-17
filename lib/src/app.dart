@@ -1643,52 +1643,46 @@ class _NumberedStep extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      crossAxisAlignment: CrossAxisAlignment.baseline,
-      textBaseline: TextBaseline.alphabetic,
-      children: [
-        Text(
-          '$number. ',
-          style: TextStyle(
-            fontSize: 26,
-            fontWeight: FontWeight.w900,
-            color: textPrimary.withValues(alpha: 0.35),
-          ),
-        ),
-        Text.rich(
+    return Text.rich(
+      TextSpan(
+        children: [
           TextSpan(
-            children: [
-              TextSpan(
-                text: before,
-                style: TextStyle(
-                  fontSize: 26,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: -0.6,
-                  color: textPrimary,
-                ),
-              ),
-              TextSpan(
-                text: highlight,
-                style: const TextStyle(
-                  fontSize: 26,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 0.5,
-                  color: _onboardingAccent,
-                ),
-              ),
-              TextSpan(
-                text: after,
-                style: TextStyle(
-                  fontSize: 26,
-                  fontWeight: FontWeight.w900,
-                  color: textPrimary,
-                ),
-              ),
-            ],
+            text: '$number. ',
+            style: TextStyle(
+              fontSize: 26,
+              fontWeight: FontWeight.w900,
+              color: textPrimary.withValues(alpha: 0.35),
+            ),
           ),
-        ),
-      ],
+          TextSpan(
+            text: before,
+            style: TextStyle(
+              fontSize: 26,
+              fontWeight: FontWeight.w900,
+              letterSpacing: -0.6,
+              color: textPrimary,
+            ),
+          ),
+          TextSpan(
+            text: highlight,
+            style: const TextStyle(
+              fontSize: 26,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 0.5,
+              color: _onboardingAccent,
+            ),
+          ),
+          TextSpan(
+            text: after,
+            style: TextStyle(
+              fontSize: 26,
+              fontWeight: FontWeight.w900,
+              color: textPrimary,
+            ),
+          ),
+        ],
+      ),
+      textAlign: TextAlign.center,
     );
   }
 }
