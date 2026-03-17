@@ -770,7 +770,10 @@ class _WelcomeOnboardingViewState extends State<_WelcomeOnboardingView>
     final dark = _isDark(context);
     final textPrimary = dark ? _brandWhite : const Color(0xFF1A1816);
     final textSecondary = dark ? _brandMist : const Color(0xFF8A8480);
-    final canContinue = _isIosDevice()
+    final isSimulator = _isIosDevice() && !widget.controller.platformSupported;
+    final canContinue = isSimulator
+        ? true
+        : _isIosDevice()
         ? widget.controller.platformAuthorizationGranted &&
               widget.controller.selectedAppsCount > 0
         : _isAndroidDevice()
@@ -800,7 +803,9 @@ class _WelcomeOnboardingViewState extends State<_WelcomeOnboardingView>
         const SizedBox(height: 8),
         Center(
           child: Text(
-            _isIosDevice()
+            isSimulator
+                ? 'Screen Time is not available on the simulator. You can skip this step.'
+                : _isIosDevice()
                 ? 'Pick the apps that disappear during focus.'
                 : _isAndroidDevice()
                 ? 'Choose the apps that pull you away.'
@@ -814,10 +819,11 @@ class _WelcomeOnboardingViewState extends State<_WelcomeOnboardingView>
           ),
         ),
         const SizedBox(height: 24),
-        _PlatformSetupSection(controller: widget.controller, compact: false),
-        const SizedBox(height: 24),
+        if (!isSimulator)
+          _PlatformSetupSection(controller: widget.controller, compact: false),
+        if (!isSimulator) const SizedBox(height: 24),
         _OnboardingButton(
-          label: 'Continue \u2192',
+          label: isSimulator ? 'Skip for now \u2192' : 'Continue \u2192',
           onPressed: canContinue ? _goNext : null,
         ),
       ],
