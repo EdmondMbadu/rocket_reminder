@@ -251,14 +251,18 @@ class GoalLockRoot extends StatelessWidget {
                 },
               ),
             ),
-            if (phase == LockPhase.morningLocked)
+            if (!controller.holdOnboarding &&
+                phase == LockPhase.morningLocked)
               _MorningLockOverlay(controller: controller),
-            if (phase == LockPhase.noonLocked)
+            if (!controller.holdOnboarding &&
+                phase == LockPhase.noonLocked)
               _MiddayCheckOverlay(controller: controller),
-            if (phase == LockPhase.eveningLocked)
+            if (!controller.holdOnboarding &&
+                phase == LockPhase.eveningLocked)
               _EveningReflectionOverlay(controller: controller),
-            if (controller.errorMessage != null ||
-                controller.noticeMessage != null)
+            if (!controller.holdOnboarding &&
+                (controller.errorMessage != null ||
+                    controller.noticeMessage != null))
               Positioned(
                 top: 18,
                 left: 18,
@@ -369,21 +373,31 @@ class _WelcomeOnboardingViewState extends State<_WelcomeOnboardingView>
   }
 
   Future<void> _completeAuth() async {
-    // Hold the onboarding view open during lock animation
+    // Dismiss any banners and hold the onboarding view open
+    widget.controller.dismissBanner();
     widget.controller.setHoldOnboarding(true);
 
     // Move to lock animation screen
-    setState(() => _step = 4);
+    setState(() {
+      _step = 4;
+      _shackleClosed = false;
+      _showLockedIn = false;
+      _showSubtext = false;
+      _showFinalCta = false;
+    });
 
-    // Start the lock animation sequence
-    _runLockAnimation();
-
-    // Arm the goal in the background
+    // Arm the goal in the background (saves to DB)
     await widget.controller.armGoalLock(
       goal: _goalText.trim(),
       morningLockMinutes: 6 * 60 + 30, // default 6:30 AM
       focusWindowHours: 14,
     );
+
+    // Dismiss any notice from armGoalLock before showing animation
+    widget.controller.dismissBanner();
+
+    // Start the lock animation sequence after goal is saved
+    if (mounted) _runLockAnimation();
   }
 
   void _runLockAnimation() {
@@ -756,6 +770,15 @@ class _WelcomeOnboardingViewState extends State<_WelcomeOnboardingView>
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
+        // Sign up / Sign in toggle at top
+        _ModeSwitch(
+          authMode: _isSignUp ? AuthMode.signUp : AuthMode.signIn,
+          onChanged: (mode) => setState(() {
+            _isSignUp = mode == AuthMode.signUp;
+            _resetSent = false;
+          }),
+        ),
+        const SizedBox(height: 24),
         // Google button
         SizedBox(
           width: double.infinity,
@@ -764,7 +787,6 @@ class _WelcomeOnboardingViewState extends State<_WelcomeOnboardingView>
             onPressed: widget.controller.isBusy
                 ? null
                 : () async {
-                    // Google sign-in placeholder — for now goes to preview
                     await widget.controller.continueInPreview();
                     await _completeAuth();
                   },
@@ -779,7 +801,6 @@ class _WelcomeOnboardingViewState extends State<_WelcomeOnboardingView>
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                // Google "G" logo via text
                 Container(
                   width: 22,
                   height: 22,
@@ -905,7 +926,6 @@ class _WelcomeOnboardingViewState extends State<_WelcomeOnboardingView>
                           password: _passwordCtl.text,
                         );
                       }
-                      // If auth succeeded (account exists now), go to lock screen
                       if (widget.controller.account != null) {
                         await _completeAuth();
                       }
@@ -913,76 +933,38 @@ class _WelcomeOnboardingViewState extends State<_WelcomeOnboardingView>
                   : null,
           isLoading: widget.controller.isBusy,
         ),
-        const SizedBox(height: 16),
-        // Toggle / Forgot password
-        if (_isSignUp)
+        // Forgot password (sign-in only)
+        if (!_isSignUp) ...[
+          const SizedBox(height: 14),
           GestureDetector(
-            onTap: () => setState(() {
-              _isSignUp = false;
-              _resetSent = false;
-            }),
+            onTap: () async {
+              if (_emailCtl.text.trim().contains('@')) {
+                await widget.controller
+                    .requestPasswordReset(_emailCtl.text);
+                setState(() => _resetSent = true);
+              }
+            },
             child: Text(
-              'Already have an account? Sign in',
+              'Forgot password?',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: textSecondary,
+              ),
+            ),
+          ),
+          if (_resetSent) ...[
+            const SizedBox(height: 8),
+            Text(
+              'Reset link sent — check your inbox.',
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
                 color: _onboardingAccent,
               ),
             ),
-          )
-        else
-          Column(
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  GestureDetector(
-                    onTap: () => setState(() => _isSignUp = true),
-                    child: Text(
-                      'No account? Create one',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: _onboardingAccent,
-                      ),
-                    ),
-                  ),
-                  Text(
-                    '  \u00B7  ',
-                    style: TextStyle(color: textSecondary),
-                  ),
-                  GestureDetector(
-                    onTap: () async {
-                      if (_emailCtl.text.trim().contains('@')) {
-                        await widget.controller
-                            .requestPasswordReset(_emailCtl.text);
-                        setState(() => _resetSent = true);
-                      }
-                    },
-                    child: Text(
-                      'Forgot password?',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: _onboardingAccent,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              if (_resetSent) ...[
-                const SizedBox(height: 10),
-                Text(
-                  'Reset link sent — check your inbox.',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: _onboardingAccent,
-                  ),
-                ),
-              ],
-            ],
-          ),
+          ],
+        ],
         if (!kReleaseMode) ...[
           const SizedBox(height: 12),
           TextButton(
