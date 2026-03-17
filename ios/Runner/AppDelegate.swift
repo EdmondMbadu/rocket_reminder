@@ -12,5 +12,10 @@ import UIKit
 
   func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
     GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
+    GoalLockPlatformPlugin.register(
+      with: engineBridge.pluginRegistry.registrar(
+        forPlugin: "GoalLockPlatformPlugin"
+      )!
+    )
   }
 }

@@ -5,6 +5,8 @@ import 'package:flutter/foundation.dart';
 import 'local_cache.dart';
 import 'local_cache_base.dart';
 import 'models.dart';
+import 'platform_control.dart';
+import 'platform_control_base.dart';
 import 'rocket_goals_bridge.dart';
 import 'rocket_goals_bridge_base.dart';
 
@@ -27,13 +29,16 @@ class GoalLockController extends ChangeNotifier {
   GoalLockController({
     LocalCache? cache,
     RocketGoalsBridge? bridge,
+    GoalLockPlatformControl? platformControl,
     DateTime Function()? now,
   }) : _cache = cache ?? createLocalCache(),
        _bridge = bridge ?? createRocketGoalsBridge(),
+       _platform = platformControl ?? createGoalLockPlatformControl(),
        _now = now ?? DateTime.now;
 
   final LocalCache _cache;
   final RocketGoalsBridge _bridge;
+  final GoalLockPlatformControl _platform;
   final DateTime Function() _now;
   static const int middayCheckMinutes = 12 * 60;
 
@@ -51,6 +56,11 @@ class GoalLockController extends ChangeNotifier {
   UserAccount? _account;
   GoalPlan? _goalPlan;
   List<DailyCommitment> _commitments = const [];
+  DeviceControlState _deviceControlState = const DeviceControlState();
+  List<SelectableApp> _availableAndroidApps = const [];
+  bool _platformSupported = false;
+  bool _canBlockApps = false;
+  bool _canDetectUsage = false;
 
   bool get isReady => _isReady;
   bool get isBusy => _isBusy;
@@ -64,6 +74,21 @@ class GoalLockController extends ChangeNotifier {
   GoalPlan? get goalPlan => _goalPlan;
   List<DailyCommitment> get commitments =>
       List<DailyCommitment>.unmodifiable(_sortedCommitmentsDesc());
+  DeviceControlState get deviceControlState => _deviceControlState;
+  List<SelectableApp> get availableAndroidApps =>
+      List<SelectableApp>.unmodifiable(_availableAndroidApps);
+  bool get platformSupported => _platformSupported;
+  bool get canBlockApps => _canBlockApps;
+  bool get canDetectUsage => _canDetectUsage;
+  bool get notificationsGranted => _deviceControlState.notificationsGranted;
+  bool get platformAuthorizationGranted =>
+      _deviceControlState.platformAuthorizationGranted;
+  bool get usageAccessGranted => _deviceControlState.usageAccessGranted;
+  int get selectedAppsCount => _deviceControlState.selectedAppsCount;
+  List<SelectableApp> get selectedAndroidApps =>
+      List<SelectableApp>.unmodifiable(_deviceControlState.selectedAndroidApps);
+  bool get recommitRequired => _deviceControlState.recommitRequired;
+  String? get lastSlipAppName => _deviceControlState.lastSlipAppName;
   bool get hasLinkedSync => _remoteCredentials != null;
   bool get reconnectNeeded =>
       _account?.mode == ExperienceMode.linked && _remoteCredentials == null;
@@ -192,10 +217,18 @@ class GoalLockController extends ChangeNotifier {
       _goalPlan = snapshot.goalPlan;
       _commitments = snapshot.commitments;
       _isDarkMode = snapshot.isDarkMode;
+      _deviceControlState = snapshot.deviceControlState;
       if (reconnectNeeded) {
         _noticeMessage =
             'Local progress restored. Log back into Rocket Goals to resume cloud sync.';
       }
+    }
+    await _refreshPlatformStatus(
+      includeInstalledApps: defaultTargetPlatform == TargetPlatform.android,
+      persist: false,
+    );
+    if (_goalPlan?.armed == true) {
+      await _syncPlatformPlan(silent: true);
     }
     _isReady = true;
     _startTicker();
@@ -208,6 +241,9 @@ class GoalLockController extends ChangeNotifier {
     }
     if (_account?.mode == ExperienceMode.linked && _remoteCredentials != null) {
       unawaited(refreshLinkedAccount(silent: true));
+    }
+    if (_goalPlan?.armed == true) {
+      unawaited(_refreshPlatformSignals());
     }
     notifyListeners();
   }
@@ -237,6 +273,77 @@ class GoalLockController extends ChangeNotifier {
     _isDarkMode = !_isDarkMode;
     notifyListeners();
     _persist();
+  }
+
+  Future<void> requestPlatformAuthorization() async {
+    await _runPlatformAction(
+      action: _platform.requestPlatformAuthorization,
+      successMessage: defaultTargetPlatform == TargetPlatform.iOS
+          ? 'Screen Time access granted. Choose the apps Goal Lock should shield.'
+          : 'Usage access opened. Grant access, then return to Goal Lock.',
+    );
+  }
+
+  Future<void> requestNotificationPermission() async {
+    await _runPlatformAction(
+      action: _platform.requestNotificationPermission,
+      successMessage:
+          'Notifications are on. Goal Lock can now send focus nudges.',
+    );
+  }
+
+  Future<void> openUsageAccessSettings() async {
+    await _runPlatformAction(
+      action: _platform.openUsageAccessSettings,
+      successMessage:
+          'Usage access opened. Grant access, then return to Goal Lock.',
+    );
+  }
+
+  Future<void> pickBlockedApps() async {
+    await _runPlatformAction(
+      action: _platform.pickBlockedApps,
+      successMessage: 'App selection updated.',
+    );
+  }
+
+  Future<void> loadAvailableAndroidApps() async {
+    await _refreshPlatformStatus(includeInstalledApps: true);
+    notifyListeners();
+  }
+
+  Future<void> setSelectedAndroidApps(List<SelectableApp> apps) async {
+    _deviceControlState = _deviceControlState.copyWith(
+      selectedAndroidApps: List<SelectableApp>.unmodifiable(apps),
+      selectedAppsCount: apps.length,
+    );
+    await _persist();
+    notifyListeners();
+    if (_goalPlan?.armed == true) {
+      await _syncPlatformPlan();
+    }
+  }
+
+  Future<void> clearRecommitState() async {
+    _deviceControlState = _deviceControlState.copyWith(
+      recommitRequired: false,
+      lastSlipAppName: null,
+    );
+    await _persist();
+    notifyListeners();
+  }
+
+  Future<void> submitRecommit(String answer) async {
+    if (answer.trim().isEmpty) {
+      _errorMessage = 'Name the next move before you continue.';
+      notifyListeners();
+      return;
+    }
+    _deviceControlState = _deviceControlState.copyWith(recommitRequired: false);
+    _noticeMessage = 'Recommitted. Back to the one thing.';
+    _errorMessage = null;
+    await _persist();
+    notifyListeners();
   }
 
   Future<void> continueInPreview() async {
@@ -430,6 +537,7 @@ class GoalLockController extends ChangeNotifier {
     if (_account!.mode == ExperienceMode.preview && _commitments.isEmpty) {
       _commitments = _seedPreviewMomentum(draft);
     }
+    await _syncPlatformPlan(silent: true, planOverride: draft);
     await _persist();
     _setBusy(false);
   }
@@ -542,6 +650,7 @@ class GoalLockController extends ChangeNotifier {
       armed: true,
     );
     _noticeMessage = 'Schedule updated.';
+    await _syncPlatformPlan(silent: true);
     await _saveLocallyThenSyncRemotely();
   }
 
@@ -572,11 +681,14 @@ class GoalLockController extends ChangeNotifier {
     _account = null;
     _goalPlan = null;
     _commitments = const [];
+    _deviceControlState = const DeviceControlState();
+    _availableAndroidApps = const [];
     _authMode = AuthMode.signIn;
     _currentTab = AppTab.today;
     _errorMessage = null;
     _noticeMessage = null;
     _isReady = true;
+    await _platform.clear();
     await _cache.clear();
     _startTicker();
     notifyListeners();
@@ -785,6 +897,127 @@ class GoalLockController extends ChangeNotifier {
     }
   }
 
+  Future<void> _runPlatformAction({
+    required Future<PlatformStatus> Function() action,
+    String? successMessage,
+  }) async {
+    _setBusy(true);
+    _clearMessages();
+    try {
+      final status = await action();
+      await _mergePlatformStatus(status);
+      if (successMessage != null) {
+        _noticeMessage = successMessage;
+      }
+    } catch (_) {
+      _errorMessage =
+          'We could not update device permissions right now. Try again on this device.';
+    } finally {
+      _setBusy(false);
+    }
+  }
+
+  Future<void> _refreshPlatformStatus({
+    bool includeInstalledApps = false,
+    bool persist = true,
+  }) async {
+    try {
+      final status = await _platform.getStatus(
+        includeInstalledApps: includeInstalledApps,
+      );
+      await _mergePlatformStatus(status, persist: persist);
+    } catch (_) {
+      // Leave the last-known local state intact if native integration is absent.
+    }
+  }
+
+  Future<void> _refreshPlatformSignals() async {
+    await _refreshPlatformStatus(
+      includeInstalledApps: defaultTargetPlatform == TargetPlatform.android,
+    );
+    final plan = _goalPlan;
+    if (plan == null ||
+        !_canDetectUsage ||
+        _deviceControlState.selectedAndroidApps.isEmpty) {
+      return;
+    }
+    try {
+      final slip = await _platform.detectSlip(
+        plan: plan,
+        androidSelectedApps: _deviceControlState.selectedAndroidApps,
+      );
+      if (slip != null) {
+        await _recordSlip(slip);
+      }
+    } catch (_) {
+      // Ignore transient device-side slip detection errors.
+    }
+  }
+
+  Future<void> _recordSlip(PlatformSlipEvent slip) async {
+    if (_deviceControlState.lastSlipAt == slip.occurredAt &&
+        _deviceControlState.lastSlipAppName == slip.label) {
+      return;
+    }
+    _deviceControlState = _deviceControlState.copyWith(
+      slipCount: _deviceControlState.slipCount + 1,
+      lastSlipAppName: slip.label,
+      lastSlipAt: slip.occurredAt,
+      recommitRequired: true,
+    );
+    _noticeMessage =
+        'Drift detected in ${slip.label}. Recommit before you continue.';
+    await _persist();
+    if (hasListeners) {
+      notifyListeners();
+    }
+  }
+
+  Future<void> _mergePlatformStatus(
+    PlatformStatus status, {
+    bool persist = true,
+  }) async {
+    _platformSupported = status.supported;
+    _canBlockApps = status.canBlockApps;
+    _canDetectUsage = status.canDetectUsage;
+    if (status.installedApps.isNotEmpty) {
+      _availableAndroidApps = status.installedApps;
+    }
+    _deviceControlState = _deviceControlState.copyWith(
+      platformAuthorizationGranted: status.platformAuthorizationGranted,
+      notificationsGranted: status.notificationsGranted,
+      usageAccessGranted: status.usageAccessGranted,
+      selectedAppsCount: status.selectedAppsCount,
+    );
+    if (persist) {
+      await _persist();
+    }
+  }
+
+  Future<void> _syncPlatformPlan({
+    bool silent = false,
+    GoalPlan? planOverride,
+  }) async {
+    final plan = planOverride ?? _goalPlan;
+    if (plan == null || !plan.armed) {
+      return;
+    }
+    try {
+      await _platform.configureSchedule(
+        plan: plan,
+        androidSelectedApps: _deviceControlState.selectedAndroidApps,
+      );
+      await _refreshPlatformStatus(
+        includeInstalledApps: defaultTargetPlatform == TargetPlatform.android,
+      );
+    } catch (_) {
+      if (!silent) {
+        _noticeMessage =
+            'Goal saved, but device controls still need a quick retry on this phone.';
+      }
+    }
+  }
+
   void _setBusy(bool next) {
     _isBusy = next;
     notifyListeners();
@@ -797,6 +1030,7 @@ class GoalLockController extends ChangeNotifier {
         goalPlan: _goalPlan,
         commitments: _commitments,
         isDarkMode: _isDarkMode,
+        deviceControlState: _deviceControlState,
       ).toJson(),
     );
   }

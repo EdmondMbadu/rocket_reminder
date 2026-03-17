@@ -293,18 +293,131 @@ class DailyCommitment {
   }
 }
 
+class SelectableApp {
+  const SelectableApp({required this.id, required this.label});
+
+  final String id;
+  final String label;
+
+  Map<String, dynamic> toJson() {
+    return {'id': id, 'label': label};
+  }
+
+  factory SelectableApp.fromJson(Map<String, dynamic> json) {
+    return SelectableApp(
+      id: json['id'] as String? ?? '',
+      label: json['label'] as String? ?? '',
+    );
+  }
+}
+
+class DeviceControlState {
+  const DeviceControlState({
+    this.platformAuthorizationGranted = false,
+    this.notificationsGranted = false,
+    this.usageAccessGranted = false,
+    this.selectedAppsCount = 0,
+    this.selectedAndroidApps = const [],
+    this.slipCount = 0,
+    this.lastSlipAppName,
+    this.lastSlipAt,
+    this.recommitRequired = false,
+  });
+
+  final bool platformAuthorizationGranted;
+  final bool notificationsGranted;
+  final bool usageAccessGranted;
+  final int selectedAppsCount;
+  final List<SelectableApp> selectedAndroidApps;
+  final int slipCount;
+  final String? lastSlipAppName;
+  final DateTime? lastSlipAt;
+  final bool recommitRequired;
+
+  DeviceControlState copyWith({
+    bool? platformAuthorizationGranted,
+    bool? notificationsGranted,
+    bool? usageAccessGranted,
+    int? selectedAppsCount,
+    List<SelectableApp>? selectedAndroidApps,
+    int? slipCount,
+    Object? lastSlipAppName = _unset,
+    Object? lastSlipAt = _unset,
+    bool? recommitRequired,
+  }) {
+    return DeviceControlState(
+      platformAuthorizationGranted:
+          platformAuthorizationGranted ?? this.platformAuthorizationGranted,
+      notificationsGranted: notificationsGranted ?? this.notificationsGranted,
+      usageAccessGranted: usageAccessGranted ?? this.usageAccessGranted,
+      selectedAppsCount: selectedAppsCount ?? this.selectedAppsCount,
+      selectedAndroidApps: selectedAndroidApps ?? this.selectedAndroidApps,
+      slipCount: slipCount ?? this.slipCount,
+      lastSlipAppName: identical(lastSlipAppName, _unset)
+          ? this.lastSlipAppName
+          : lastSlipAppName as String?,
+      lastSlipAt: identical(lastSlipAt, _unset)
+          ? this.lastSlipAt
+          : lastSlipAt as DateTime?,
+      recommitRequired: recommitRequired ?? this.recommitRequired,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'platformAuthorizationGranted': platformAuthorizationGranted,
+      'notificationsGranted': notificationsGranted,
+      'usageAccessGranted': usageAccessGranted,
+      'selectedAppsCount': selectedAppsCount,
+      'selectedAndroidApps': selectedAndroidApps
+          .map((entry) => entry.toJson())
+          .toList(),
+      'slipCount': slipCount,
+      'lastSlipAppName': lastSlipAppName,
+      'lastSlipAt': lastSlipAt?.toIso8601String(),
+      'recommitRequired': recommitRequired,
+    };
+  }
+
+  factory DeviceControlState.fromJson(Map<String, dynamic> json) {
+    final selectedAppsJson =
+        (json['selectedAndroidApps'] as List<dynamic>? ?? const <dynamic>[])
+            .map(
+              (entry) =>
+                  (entry as Map<dynamic, dynamic>).cast<String, dynamic>(),
+            )
+            .toList(growable: false);
+    return DeviceControlState(
+      platformAuthorizationGranted:
+          json['platformAuthorizationGranted'] as bool? ?? false,
+      notificationsGranted: json['notificationsGranted'] as bool? ?? false,
+      usageAccessGranted: json['usageAccessGranted'] as bool? ?? false,
+      selectedAppsCount: _coerceInt(json['selectedAppsCount']) ?? 0,
+      selectedAndroidApps: selectedAppsJson
+          .map(SelectableApp.fromJson)
+          .toList(growable: false),
+      slipCount: _coerceInt(json['slipCount']) ?? 0,
+      lastSlipAppName: json['lastSlipAppName'] as String?,
+      lastSlipAt: _coerceDateTime(json['lastSlipAt']),
+      recommitRequired: json['recommitRequired'] as bool? ?? false,
+    );
+  }
+}
+
 class GoalLockSnapshot {
   const GoalLockSnapshot({
     required this.account,
     required this.goalPlan,
     required this.commitments,
     this.isDarkMode = false,
+    this.deviceControlState = const DeviceControlState(),
   });
 
   final UserAccount? account;
   final GoalPlan? goalPlan;
   final List<DailyCommitment> commitments;
   final bool isDarkMode;
+  final DeviceControlState deviceControlState;
 
   Map<String, dynamic> toJson() {
     return {
@@ -312,6 +425,7 @@ class GoalLockSnapshot {
       'goalPlan': goalPlan?.toJson(),
       'commitments': commitments.map((entry) => entry.toJson()).toList(),
       'isDarkMode': isDarkMode,
+      'deviceControlState': deviceControlState.toJson(),
     };
   }
 
@@ -335,6 +449,12 @@ class GoalLockSnapshot {
           .map(DailyCommitment.fromJson)
           .toList(growable: false),
       isDarkMode: json['isDarkMode'] as bool? ?? false,
+      deviceControlState: json['deviceControlState'] == null
+          ? const DeviceControlState()
+          : DeviceControlState.fromJson(
+              (json['deviceControlState'] as Map<dynamic, dynamic>)
+                  .cast<String, dynamic>(),
+            ),
     );
   }
 }

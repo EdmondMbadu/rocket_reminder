@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui';
 
@@ -18,6 +19,11 @@ const _brandBlackSoft = Color(0xFF101010);
 
 bool _isDark(BuildContext context) =>
     Theme.of(context).brightness == Brightness.dark;
+
+bool _isIosDevice() => !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS;
+
+bool _isAndroidDevice() =>
+    !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
 
 // ---------------------------------------------------------------------------
 // App root
@@ -251,15 +257,16 @@ class GoalLockRoot extends StatelessWidget {
                 },
               ),
             ),
-            if (!controller.holdOnboarding &&
-                phase == LockPhase.morningLocked)
+            if (!controller.holdOnboarding && phase == LockPhase.morningLocked)
               _MorningLockOverlay(controller: controller),
-            if (!controller.holdOnboarding &&
-                phase == LockPhase.noonLocked)
+            if (!controller.holdOnboarding && phase == LockPhase.noonLocked)
               _MiddayCheckOverlay(controller: controller),
-            if (!controller.holdOnboarding &&
-                phase == LockPhase.eveningLocked)
+            if (!controller.holdOnboarding && phase == LockPhase.eveningLocked)
               _EveningReflectionOverlay(controller: controller),
+            if (!controller.holdOnboarding &&
+                phase == LockPhase.unlocked &&
+                controller.recommitRequired)
+              _RecommitOverlay(controller: controller),
             if (!controller.holdOnboarding &&
                 (controller.errorMessage != null ||
                     controller.noticeMessage != null))
@@ -317,16 +324,16 @@ class _WelcomeOnboardingView extends StatefulWidget {
   final GoalLockController controller;
 
   @override
-  State<_WelcomeOnboardingView> createState() =>
-      _WelcomeOnboardingViewState();
+  State<_WelcomeOnboardingView> createState() => _WelcomeOnboardingViewState();
 }
 
 class _WelcomeOnboardingViewState extends State<_WelcomeOnboardingView>
     with TickerProviderStateMixin {
-  int _step = 0; // 0..4 for screens 1..5
+  int _step = 0; // 0..5 for screens 1..6
   String _goalText = '';
   bool _isSignUp = true;
   bool _resetSent = false;
+  bool _requestedAndroidApps = false;
 
   // Auth form controllers
   late final TextEditingController _firstNameCtl;
@@ -365,11 +372,27 @@ class _WelcomeOnboardingViewState extends State<_WelcomeOnboardingView>
   }
 
   void _goNext() {
-    if (_step < 4) setState(() => _step += 1);
+    if (_step < 5) {
+      final nextStep = _step + 1;
+      setState(() => _step = nextStep);
+      if (nextStep == 3) {
+        _ensureAndroidAppsLoaded();
+      }
+    }
   }
 
   void _goBack() {
     if (_step > 0) setState(() => _step -= 1);
+  }
+
+  void _ensureAndroidAppsLoaded() {
+    if (!_isAndroidDevice() ||
+        _requestedAndroidApps ||
+        widget.controller.availableAndroidApps.isNotEmpty) {
+      return;
+    }
+    _requestedAndroidApps = true;
+    unawaited(widget.controller.loadAvailableAndroidApps());
   }
 
   Future<void> _completeAuth() async {
@@ -435,10 +458,10 @@ class _WelcomeOnboardingViewState extends State<_WelcomeOnboardingView>
             mainAxisSize: MainAxisSize.min,
             children: [
               // Progress dots
-              _OnboardingDots(current: _step, total: 5),
+              _OnboardingDots(current: _step, total: 6),
               const SizedBox(height: 20),
               // Back button row
-              if (_step > 0 && _step < 4)
+              if (_step > 0 && _step < 5)
                 Align(
                   alignment: Alignment.centerLeft,
                   child: GestureDetector(
@@ -476,8 +499,9 @@ class _WelcomeOnboardingViewState extends State<_WelcomeOnboardingView>
                     0 => _buildHookScreen(context),
                     1 => _buildHowItWorksScreen(context),
                     2 => _buildGoalInputScreen(context),
-                    3 => _buildAuthGateScreen(context),
-                    4 => _buildLockScreen(context),
+                    3 => _buildDeviceSetupScreen(context),
+                    4 => _buildAuthGateScreen(context),
+                    5 => _buildLockScreen(context),
                     _ => const SizedBox.shrink(),
                   },
                 ),
@@ -500,11 +524,13 @@ class _WelcomeOnboardingViewState extends State<_WelcomeOnboardingView>
       mainAxisSize: MainAxisSize.min,
       children: [
         const SizedBox(height: 12),
+        const _RocketBadge(size: 56),
+        const SizedBox(height: 16),
         Text(
           'GOAL LOCK',
           style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w800,
+            fontSize: 18,
+            fontWeight: FontWeight.w900,
             letterSpacing: 3.0,
             color: _onboardingAccent,
           ),
@@ -536,10 +562,7 @@ class _WelcomeOnboardingViewState extends State<_WelcomeOnboardingView>
           ),
         ),
         const SizedBox(height: 32),
-        _OnboardingButton(
-          label: 'Get started',
-          onPressed: _goNext,
-        ),
+        _OnboardingButton(label: 'Get started', onPressed: _goNext),
         const SizedBox(height: 8),
       ],
     );
@@ -590,12 +613,7 @@ class _WelcomeOnboardingViewState extends State<_WelcomeOnboardingView>
               // Vertical line
               SizedBox(
                 width: 40,
-                child: Center(
-                  child: Container(
-                    width: 2,
-                    color: lineColor,
-                  ),
-                ),
+                child: Center(child: Container(width: 2, color: lineColor)),
               ),
               // Timeline items
               Expanded(
@@ -634,10 +652,7 @@ class _WelcomeOnboardingViewState extends State<_WelcomeOnboardingView>
           ),
         ),
         const SizedBox(height: 32),
-        _OnboardingButton(
-          label: 'Set my goal',
-          onPressed: _goNext,
-        ),
+        _OnboardingButton(label: 'Set my goal', onPressed: _goNext),
       ],
     );
   }
@@ -693,8 +708,10 @@ class _WelcomeOnboardingViewState extends State<_WelcomeOnboardingView>
                   );
                 },
                 child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 10,
+                  ),
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(20),
                     color: dark
@@ -749,6 +766,66 @@ class _WelcomeOnboardingViewState extends State<_WelcomeOnboardingView>
 
   // ── Screen 4: Auth Gate ──
 
+  Widget _buildDeviceSetupScreen(BuildContext context) {
+    final dark = _isDark(context);
+    final textPrimary = dark ? _brandWhite : const Color(0xFF1A1816);
+    final textSecondary = dark ? _brandMist : const Color(0xFF8A8480);
+    final canContinue = _isIosDevice()
+        ? widget.controller.platformAuthorizationGranted &&
+              widget.controller.selectedAppsCount > 0
+        : _isAndroidDevice()
+        ? widget.controller.notificationsGranted &&
+              widget.controller.selectedAppsCount > 0
+        : true;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Center(
+          child: Text(
+            _isIosDevice()
+                ? 'Block distracting apps'
+                : _isAndroidDevice()
+                ? 'Watch for drift'
+                : 'Device setup',
+            style: TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.w900,
+              letterSpacing: -0.5,
+              color: textPrimary,
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Center(
+          child: Text(
+            _isIosDevice()
+                ? 'Pick the apps that disappear during focus.'
+                : _isAndroidDevice()
+                ? 'Choose the apps that pull you away.'
+                : 'Quick setup before you start.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+              color: textSecondary,
+            ),
+          ),
+        ),
+        const SizedBox(height: 24),
+        _PlatformSetupSection(controller: widget.controller, compact: false),
+        const SizedBox(height: 24),
+        _OnboardingButton(
+          label: 'Continue \u2192',
+          onPressed: canContinue ? _goNext : null,
+        ),
+      ],
+    );
+  }
+
+  // ── Screen 5: Auth Gate ──
+
   Widget _buildAuthGateScreen(BuildContext context) {
     final dark = _isDark(context);
     final textPrimary = dark ? _brandWhite : const Color(0xFF1A1816);
@@ -761,7 +838,8 @@ class _WelcomeOnboardingViewState extends State<_WelcomeOnboardingView>
     final password = _passwordCtl.text;
     final hasAt = email.contains('@');
 
-    final signUpValid = firstName.isNotEmpty &&
+    final signUpValid =
+        firstName.isNotEmpty &&
         lastName.isNotEmpty &&
         hasAt &&
         password.length >= 8;
@@ -806,9 +884,7 @@ class _WelcomeOnboardingViewState extends State<_WelcomeOnboardingView>
                   height: 22,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    border: Border.all(
-                      color: overlay.withValues(alpha: 0.15),
-                    ),
+                    border: Border.all(color: overlay.withValues(alpha: 0.15)),
                   ),
                   child: Center(
                     child: Text(
@@ -912,25 +988,25 @@ class _WelcomeOnboardingViewState extends State<_WelcomeOnboardingView>
           onPressed: widget.controller.isBusy
               ? null
               : (_isSignUp ? signUpValid : signInValid)
-                  ? () async {
-                      if (_isSignUp) {
-                        await widget.controller.signUp(
-                          firstName: _firstNameCtl.text,
-                          lastName: _lastNameCtl.text,
-                          email: _emailCtl.text,
-                          password: _passwordCtl.text,
-                        );
-                      } else {
-                        await widget.controller.signIn(
-                          email: _emailCtl.text,
-                          password: _passwordCtl.text,
-                        );
-                      }
-                      if (widget.controller.account != null) {
-                        await _completeAuth();
-                      }
-                    }
-                  : null,
+              ? () async {
+                  if (_isSignUp) {
+                    await widget.controller.signUp(
+                      firstName: _firstNameCtl.text,
+                      lastName: _lastNameCtl.text,
+                      email: _emailCtl.text,
+                      password: _passwordCtl.text,
+                    );
+                  } else {
+                    await widget.controller.signIn(
+                      email: _emailCtl.text,
+                      password: _passwordCtl.text,
+                    );
+                  }
+                  if (widget.controller.account != null) {
+                    await _completeAuth();
+                  }
+                }
+              : null,
           isLoading: widget.controller.isBusy,
         ),
         // Forgot password (sign-in only)
@@ -939,8 +1015,7 @@ class _WelcomeOnboardingViewState extends State<_WelcomeOnboardingView>
           GestureDetector(
             onTap: () async {
               if (_emailCtl.text.trim().contains('@')) {
-                await widget.controller
-                    .requestPasswordReset(_emailCtl.text);
+                await widget.controller.requestPasswordReset(_emailCtl.text);
                 setState(() => _resetSent = true);
               }
             },
@@ -990,7 +1065,7 @@ class _WelcomeOnboardingViewState extends State<_WelcomeOnboardingView>
     );
   }
 
-  // ── Screen 5: Lock Animation ──
+  // ── Screen 6: Lock Animation ──
 
   Widget _buildLockScreen(BuildContext context) {
     final dark = _isDark(context);
@@ -1052,7 +1127,11 @@ class _WelcomeOnboardingViewState extends State<_WelcomeOnboardingView>
           opacity: _showSubtext ? 1.0 : 0.0,
           duration: const Duration(milliseconds: 400),
           child: Text(
-            'Your goal is saved. We\'ll see you in the morning.',
+            _isIosDevice()
+                ? 'Your goal is saved. Goal Lock will shield your selected apps during focus time.'
+                : _isAndroidDevice()
+                ? 'Your goal is saved. Goal Lock will nudge you back when you drift.'
+                : 'Your goal is saved. We\'ll see you in the morning.',
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 14,
@@ -1102,8 +1181,8 @@ class _OnboardingDots extends StatelessWidget {
             color: active
                 ? _onboardingAccent
                 : (dark
-                    ? Colors.white.withValues(alpha: 0.15)
-                    : Colors.black.withValues(alpha: 0.10)),
+                      ? Colors.white.withValues(alpha: 0.15)
+                      : Colors.black.withValues(alpha: 0.10)),
           ),
         );
       }),
@@ -1162,6 +1241,297 @@ class _OnboardingButton extends StatelessWidget {
                     ),
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PlatformSetupSection extends StatefulWidget {
+  const _PlatformSetupSection({required this.controller, this.compact = true});
+
+  final GoalLockController controller;
+  final bool compact;
+
+  @override
+  State<_PlatformSetupSection> createState() => _PlatformSetupSectionState();
+}
+
+class _PlatformSetupSectionState extends State<_PlatformSetupSection> {
+  Future<void> _pickAndroidApps() async {
+    if (widget.controller.availableAndroidApps.isEmpty) {
+      await widget.controller.loadAvailableAndroidApps();
+      if (!mounted || widget.controller.availableAndroidApps.isEmpty) {
+        return;
+      }
+    }
+    final selected = await showModalBottomSheet<List<SelectableApp>>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (context) => _AndroidAppPickerSheet(
+        allApps: widget.controller.availableAndroidApps,
+        selectedApps: widget.controller.selectedAndroidApps,
+      ),
+    );
+    if (selected != null) {
+      await widget.controller.setSelectedAndroidApps(selected);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final dark = _isDark(context);
+    final textPrimary = dark ? _brandWhite : const Color(0xFF1A1816);
+
+    if (_isIosDevice()) {
+      final iosUnavailable = !widget.controller.platformSupported;
+      final authorized = widget.controller.platformAuthorizationGranted;
+      final appCount = widget.controller.selectedAppsCount;
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Step 1: Screen Time permission
+          _SetupStepRow(
+            stepNumber: '1',
+            label: iosUnavailable
+                ? 'Requires a real iPhone'
+                : authorized
+                ? 'Screen Time enabled'
+                : 'Enable Screen Time',
+            isDone: authorized && !iosUnavailable,
+            dark: dark,
+          ),
+          const SizedBox(height: 10),
+          OutlinedButton(
+            onPressed: widget.controller.isBusy || iosUnavailable
+                ? null
+                : widget.controller.requestPlatformAuthorization,
+            child: Text(authorized ? 'Granted' : 'Allow Screen Time'),
+          ),
+          const SizedBox(height: 20),
+          // Step 2: Pick apps
+          _SetupStepRow(
+            stepNumber: '2',
+            label: appCount == 0
+                ? 'Choose apps to block'
+                : '$appCount app${appCount == 1 ? '' : 's'} selected',
+            isDone: appCount > 0,
+            dark: dark,
+          ),
+          const SizedBox(height: 10),
+          ElevatedButton(
+            onPressed: widget.controller.isBusy ||
+                    iosUnavailable ||
+                    !authorized
+                ? null
+                : widget.controller.pickBlockedApps,
+            child: Text(appCount > 0 ? 'Edit apps' : 'Choose apps'),
+          ),
+        ],
+      );
+    }
+
+    if (_isAndroidDevice()) {
+      final notifOn = widget.controller.notificationsGranted;
+      final usageOn = widget.controller.usageAccessGranted;
+      final appCount = widget.controller.selectedAppsCount;
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Step 1: Notifications
+          _SetupStepRow(
+            stepNumber: '1',
+            label: notifOn ? 'Reminders enabled' : 'Enable reminders',
+            isDone: notifOn,
+            dark: dark,
+          ),
+          const SizedBox(height: 10),
+          OutlinedButton(
+            onPressed: widget.controller.isBusy
+                ? null
+                : widget.controller.requestNotificationPermission,
+            child: Text(notifOn ? 'Enabled' : 'Allow reminders'),
+          ),
+          const SizedBox(height: 20),
+          // Step 2: Usage access (optional)
+          _SetupStepRow(
+            stepNumber: '2',
+            label: usageOn ? 'Drift detection on' : 'Drift detection (optional)',
+            isDone: usageOn,
+            dark: dark,
+          ),
+          const SizedBox(height: 10),
+          OutlinedButton(
+            onPressed: widget.controller.isBusy
+                ? null
+                : widget.controller.openUsageAccessSettings,
+            child: Text(usageOn ? 'Enabled' : 'Enable'),
+          ),
+          const SizedBox(height: 20),
+          // Step 3: Pick apps
+          _SetupStepRow(
+            stepNumber: '3',
+            label: appCount == 0
+                ? 'Choose apps to watch'
+                : '$appCount app${appCount == 1 ? '' : 's'} selected',
+            isDone: appCount > 0,
+            dark: dark,
+          ),
+          const SizedBox(height: 10),
+          ElevatedButton(
+            onPressed: widget.controller.isBusy ? null : _pickAndroidApps,
+            child: Text(appCount > 0 ? 'Edit apps' : 'Choose apps'),
+          ),
+        ],
+      );
+    }
+
+    return Text(
+      'Device controls are not available on this platform.',
+      style: TextStyle(
+        fontSize: 13,
+        fontWeight: FontWeight.w500,
+        color: textPrimary,
+      ),
+    );
+  }
+}
+
+class _SetupStepRow extends StatelessWidget {
+  const _SetupStepRow({
+    required this.stepNumber,
+    required this.label,
+    required this.isDone,
+    required this.dark,
+  });
+
+  final String stepNumber;
+  final String label;
+  final bool isDone;
+  final bool dark;
+
+  @override
+  Widget build(BuildContext context) {
+    final textPrimary = dark ? _brandWhite : const Color(0xFF1A1816);
+    return Row(
+      children: [
+        Container(
+          width: 26,
+          height: 26,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: isDone
+                ? _onboardingAccent
+                : (dark
+                    ? Colors.white.withValues(alpha: 0.10)
+                    : Colors.black.withValues(alpha: 0.06)),
+          ),
+          child: Center(
+            child: isDone
+                ? const Icon(Icons.check_rounded, size: 16, color: Colors.white)
+                : Text(
+                    stepNumber,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800,
+                      color: textPrimary,
+                    ),
+                  ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
+              color: textPrimary,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _AndroidAppPickerSheet extends StatefulWidget {
+  const _AndroidAppPickerSheet({
+    required this.allApps,
+    required this.selectedApps,
+  });
+
+  final List<SelectableApp> allApps;
+  final List<SelectableApp> selectedApps;
+
+  @override
+  State<_AndroidAppPickerSheet> createState() => _AndroidAppPickerSheetState();
+}
+
+class _AndroidAppPickerSheetState extends State<_AndroidAppPickerSheet> {
+  late Set<String> _selectedIds;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedIds = widget.selectedApps.map((entry) => entry.id).toSet();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final orderedApps = widget.allApps;
+    return SafeArea(
+      child: SizedBox(
+        height: math.min(MediaQuery.of(context).size.height * 0.82, 640),
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Choose apps',
+                      style: Theme.of(context).textTheme.titleLarge,
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(
+                      orderedApps
+                          .where((entry) => _selectedIds.contains(entry.id))
+                          .toList(growable: false),
+                    ),
+                    child: const Text('Done'),
+                  ),
+                ],
+              ),
+            ),
+            const Divider(height: 1),
+            Expanded(
+              child: ListView.builder(
+                itemCount: orderedApps.length,
+                itemBuilder: (context, index) {
+                  final app = orderedApps[index];
+                  final selected = _selectedIds.contains(app.id);
+                  return CheckboxListTile(
+                    value: selected,
+                    title: Text(app.label),
+                    subtitle: Text(app.id),
+                    onChanged: (value) {
+                      setState(() {
+                        if (value == true) {
+                          _selectedIds.add(app.id);
+                        } else {
+                          _selectedIds.remove(app.id);
+                        }
+                      });
+                    },
+                  );
+                },
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -1280,12 +1650,7 @@ class _PadlockPainter extends CustomPainter {
     final shacklePath = Path()
       ..moveTo(shackleLeft, shackleBottom)
       ..lineTo(shackleLeft, shackleTop + 14)
-      ..quadraticBezierTo(
-        shackleLeft,
-        shackleTop,
-        shackleLeft + 14,
-        shackleTop,
-      )
+      ..quadraticBezierTo(shackleLeft, shackleTop, shackleLeft + 14, shackleTop)
       ..lineTo(shackleRight - 14, shackleTop)
       ..quadraticBezierTo(
         shackleRight,
@@ -1744,6 +2109,13 @@ class _OnboardingViewState extends State<_OnboardingView> {
   Widget build(BuildContext context) {
     final dark = _isDark(context);
     final overlay = dark ? Colors.white : Colors.black;
+    final deviceSetupReady = _isIosDevice()
+        ? widget.controller.platformAuthorizationGranted &&
+              widget.controller.selectedAppsCount > 0
+        : _isAndroidDevice()
+        ? widget.controller.notificationsGranted &&
+              widget.controller.selectedAppsCount > 0
+        : true;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(24, 40, 24, 40),
@@ -1823,8 +2195,15 @@ class _OnboardingViewState extends State<_OnboardingView> {
                   ),
                 ),
                 const SizedBox(height: 20),
+                Text(
+                  'Device setup',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+                const SizedBox(height: 10),
+                _PlatformSetupSection(controller: widget.controller),
+                const SizedBox(height: 20),
                 ElevatedButton(
-                  onPressed: widget.controller.isBusy
+                  onPressed: widget.controller.isBusy || !deviceSetupReady
                       ? null
                       : () => widget.controller.armGoalLock(
                           goal: _goalController.text,
@@ -2277,6 +2656,21 @@ class _SettingsTabState extends State<_SettingsTab> {
         ),
         const SizedBox(height: 18),
         _GlassPanel(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Device setup',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+              const SizedBox(height: 12),
+              _PlatformSetupSection(controller: widget.controller),
+            ],
+          ),
+        ),
+        const SizedBox(height: 18),
+        _GlassPanel(
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
           child: Row(
             children: [
@@ -2564,6 +2958,74 @@ class _EveningReflectionOverlay extends StatelessWidget {
                   ),
                 ),
               ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _RecommitOverlay extends StatefulWidget {
+  const _RecommitOverlay({required this.controller});
+
+  final GoalLockController controller;
+
+  @override
+  State<_RecommitOverlay> createState() => _RecommitOverlayState();
+}
+
+class _RecommitOverlayState extends State<_RecommitOverlay> {
+  late final TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final appName = widget.controller.lastSlipAppName ?? 'a watched app';
+    return _LockBackdrop(
+      child: _GlassPanel(
+        width: 500,
+        padding: const EdgeInsets.all(28),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'You drifted into $appName.',
+              style: Theme.of(context).textTheme.headlineLarge,
+            ),
+            const SizedBox(height: 10),
+            Text(
+              'Before you keep going, name the next concrete move you will make for your goal.',
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+            const SizedBox(height: 18),
+            TextField(
+              controller: _controller,
+              autofocus: true,
+              textCapitalization: TextCapitalization.sentences,
+              decoration: const InputDecoration(
+                hintText:
+                    'e.g. Draft the first paragraph before touching anything else',
+              ),
+            ),
+            const SizedBox(height: 18),
+            ElevatedButton(
+              onPressed: widget.controller.isBusy
+                  ? null
+                  : () => widget.controller.submitRecommit(_controller.text),
+              child: const Text('Recommit'),
             ),
           ],
         ),

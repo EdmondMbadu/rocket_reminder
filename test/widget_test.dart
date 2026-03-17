@@ -5,6 +5,7 @@ import 'package:goal_lock/src/app.dart';
 import 'package:goal_lock/src/controller.dart';
 import 'package:goal_lock/src/local_cache_base.dart';
 import 'package:goal_lock/src/models.dart';
+import 'package:goal_lock/src/platform_control_base.dart';
 import 'package:goal_lock/src/rocket_goals_bridge_base.dart';
 
 void main() {
@@ -12,19 +13,19 @@ void main() {
     final controller = GoalLockController(
       cache: _MemoryCache(),
       bridge: const _FakeBridge(),
+      platformControl: const _FakePlatformControl(),
       now: () => DateTime(2026, 3, 7, 5, 30),
     );
 
     await tester.pumpWidget(GoalLockApp(controller: controller));
     await tester.pumpAndSettle();
 
-    await tester.ensureVisible(find.text('Skip — preview without account'));
-    await tester.tap(find.text('Skip — preview without account'));
-    await tester.pumpAndSettle();
-
-    await tester.enterText(find.byType(TextField).first, 'Write my book');
-    await tester.ensureVisible(find.text('Start'));
-    await tester.tap(find.text('Start'));
+    await controller.continueInPreview();
+    await controller.armGoalLock(
+      goal: 'Write my book',
+      morningLockMinutes: 6 * 60 + 30,
+      focusWindowHours: 14,
+    );
     await tester.pumpAndSettle();
 
     expect(find.text('Write my book'), findsWidgets);
@@ -55,6 +56,7 @@ void main() {
     final controller = GoalLockController(
       cache: _MemoryCache(seed: snapshot.toJson()),
       bridge: const _FakeBridge(),
+      platformControl: const _FakePlatformControl(),
       now: () => DateTime(2026, 3, 7, 8),
     );
 
@@ -82,6 +84,7 @@ void main() {
       final controller = GoalLockController(
         cache: _MemoryCache(),
         bridge: bridge,
+        platformControl: const _FakePlatformControl(),
         now: () => DateTime(2026, 3, 7, 6),
       );
 
@@ -122,6 +125,7 @@ void main() {
       final controller = GoalLockController(
         cache: _MemoryCache(),
         bridge: const _ExplodingBridge(),
+        platformControl: const _FakePlatformControl(),
         now: () => DateTime(2026, 3, 7, 6),
       );
 
@@ -144,6 +148,7 @@ void main() {
       final controller = GoalLockController(
         cache: _MemoryCache(),
         bridge: const _FakeBridge(),
+        platformControl: const _FakePlatformControl(),
         now: () => DateTime(2026, 3, 7, 8),
       );
 
@@ -195,6 +200,7 @@ void main() {
     final controller = GoalLockController(
       cache: _MemoryCache(seed: snapshot.toJson()),
       bridge: const _FakeBridge(),
+      platformControl: const _FakePlatformControl(),
       now: () => DateTime(2026, 3, 7, 12, 15),
     );
 
@@ -246,6 +252,7 @@ void main() {
         ).toJson(),
       ),
       bridge: const _FakeBridge(),
+      platformControl: const _FakePlatformControl(),
       now: () => now,
     );
 
@@ -262,6 +269,7 @@ void main() {
     final controller = GoalLockController(
       cache: _MemoryCache(),
       bridge: const _FakeBridge(),
+      platformControl: const _FakePlatformControl(),
       now: () => DateTime(2026, 3, 7, 8),
     );
 
@@ -298,6 +306,7 @@ void main() {
           ).toJson(),
         ),
         bridge: const _FakeBridge(),
+        platformControl: const _FakePlatformControl(),
       );
 
       await controller.initialize();
@@ -325,6 +334,7 @@ void main() {
         ).toJson(),
       ),
       bridge: const _FakeBridge(),
+      platformControl: const _FakePlatformControl(),
     );
 
     await controller.initialize();
@@ -336,6 +346,7 @@ void main() {
     final controller = GoalLockController(
       cache: _MemoryCache(),
       bridge: const _SignedInBridge(),
+      platformControl: const _FakePlatformControl(),
       now: () => DateTime(2026, 3, 7, 8),
     );
 
@@ -521,4 +532,50 @@ class _ExplodingBridge extends _FakeBridge {
   }) {
     throw ArgumentError.value('bad sync payload');
   }
+}
+
+class _FakePlatformControl implements GoalLockPlatformControl {
+  const _FakePlatformControl();
+
+  @override
+  Future<void> clear() async {}
+
+  @override
+  Future<void> configureSchedule({
+    required GoalPlan plan,
+    required List<SelectableApp> androidSelectedApps,
+  }) async {}
+
+  @override
+  Future<PlatformSlipEvent?> detectSlip({
+    required GoalPlan plan,
+    required List<SelectableApp> androidSelectedApps,
+  }) async {
+    return null;
+  }
+
+  @override
+  Future<PlatformStatus> getStatus({bool includeInstalledApps = false}) async {
+    return const PlatformStatus(
+      supported: true,
+      canBlockApps: false,
+      canDetectUsage: false,
+      platformAuthorizationGranted: false,
+      notificationsGranted: true,
+      usageAccessGranted: true,
+      selectedAppsCount: 1,
+    );
+  }
+
+  @override
+  Future<PlatformStatus> openUsageAccessSettings() async => getStatus();
+
+  @override
+  Future<PlatformStatus> pickBlockedApps() async => getStatus();
+
+  @override
+  Future<PlatformStatus> requestNotificationPermission() async => getStatus();
+
+  @override
+  Future<PlatformStatus> requestPlatformAuthorization() async => getStatus();
 }
