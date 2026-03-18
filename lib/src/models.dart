@@ -411,6 +411,7 @@ class GoalLockSnapshot {
     required this.commitments,
     this.isDarkMode = false,
     this.deviceControlState = const DeviceControlState(),
+    this.hasCompletedWelcomeOnboarding = false,
   });
 
   final UserAccount? account;
@@ -418,6 +419,7 @@ class GoalLockSnapshot {
   final List<DailyCommitment> commitments;
   final bool isDarkMode;
   final DeviceControlState deviceControlState;
+  final bool hasCompletedWelcomeOnboarding;
 
   Map<String, dynamic> toJson() {
     return {
@@ -426,6 +428,7 @@ class GoalLockSnapshot {
       'commitments': commitments.map((entry) => entry.toJson()).toList(),
       'isDarkMode': isDarkMode,
       'deviceControlState': deviceControlState.toJson(),
+      'hasCompletedWelcomeOnboarding': hasCompletedWelcomeOnboarding,
     };
   }
 
@@ -455,6 +458,8 @@ class GoalLockSnapshot {
               (json['deviceControlState'] as Map<dynamic, dynamic>)
                   .cast<String, dynamic>(),
             ),
+      hasCompletedWelcomeOnboarding:
+          json['hasCompletedWelcomeOnboarding'] as bool? ?? false,
     );
   }
 }

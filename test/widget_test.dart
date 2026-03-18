@@ -357,6 +357,95 @@ void main() {
     expect(controller.commitments.first.dateKey, '2026-03-07');
     expect(controller.commitments.first.oneThing, 'Call 3 design partners');
   });
+
+  test(
+    'sign out preserves welcome onboarding completion for returning auth',
+    () async {
+      final cache = _MemoryCache();
+      final controller = GoalLockController(
+        cache: cache,
+        bridge: const _FakeBridge(),
+        platformControl: const _FakePlatformControl(),
+        now: () => DateTime(2026, 3, 7, 8),
+      );
+
+      await controller.initialize();
+      await controller.continueInPreview();
+      await controller.armGoalLock(
+        goal: 'Write my book',
+        morningLockMinutes: 6 * 60 + 30,
+        focusWindowHours: 14,
+      );
+      await controller.markWelcomeOnboardingComplete();
+      await controller.signOut();
+
+      final signedOutState = await cache.readJson();
+      expect(signedOutState?['hasCompletedWelcomeOnboarding'], isTrue);
+      expect(signedOutState?['account'], isNull);
+      expect(signedOutState?['goalPlan'], isNull);
+
+      final nextController = GoalLockController(
+        cache: cache,
+        bridge: const _FakeBridge(),
+        platformControl: const _FakePlatformControl(),
+      );
+      await nextController.initialize();
+
+      expect(nextController.hasCompletedWelcomeOnboarding, isTrue);
+      expect(nextController.lockPhase, LockPhase.auth);
+    },
+  );
+
+  testWidgets(
+    'returning signed-out users see auth instead of welcome onboarding',
+    (tester) async {
+      final controller = GoalLockController(
+        cache: _MemoryCache(
+          seed: const GoalLockSnapshot(
+            account: null,
+            goalPlan: null,
+            commitments: [],
+            hasCompletedWelcomeOnboarding: true,
+          ).toJson(),
+        ),
+        bridge: const _FakeBridge(),
+        platformControl: const _FakePlatformControl(),
+      );
+
+      await tester.pumpWidget(GoalLockApp(controller: controller));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text('You tell us your goal, we make sure you do it!'),
+        findsOneWidget,
+      );
+      expect(find.text('Get started'), findsNothing);
+    },
+  );
+
+  test(
+    'returning sign-in without an imported goal goes to setup, not welcome flow',
+    () async {
+      final controller = GoalLockController(
+        cache: _MemoryCache(
+          seed: const GoalLockSnapshot(
+            account: null,
+            goalPlan: null,
+            commitments: [],
+            hasCompletedWelcomeOnboarding: true,
+          ).toJson(),
+        ),
+        bridge: const _ExplodingBridge(),
+        platformControl: const _FakePlatformControl(),
+      );
+
+      await controller.initialize();
+      await controller.signIn(email: 'ava@rocket.test', password: 'secret123');
+
+      expect(controller.hasCompletedWelcomeOnboarding, isTrue);
+      expect(controller.lockPhase, LockPhase.onboarding);
+    },
+  );
 }
 
 class _MemoryCache implements LocalCache {

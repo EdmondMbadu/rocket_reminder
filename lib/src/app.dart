@@ -246,9 +246,11 @@ class GoalLockRoot extends StatelessWidget {
                 key: ValueKey(phase),
                 child: switch (phase) {
                   LockPhase.loading => const _LoadingView(),
-                  LockPhase.auth => _WelcomeOnboardingView(
-                    controller: controller,
-                  ),
+                  LockPhase.auth =>
+                    controller.holdOnboarding ||
+                            !controller.hasCompletedWelcomeOnboarding
+                        ? _WelcomeOnboardingView(controller: controller)
+                        : _AuthView(controller: controller),
                   LockPhase.billing => _BillingView(controller: controller),
                   LockPhase.onboarding => _OnboardingView(
                     controller: controller,
@@ -415,6 +417,9 @@ class _WelcomeOnboardingViewState extends State<_WelcomeOnboardingView>
       morningLockMinutes: 6 * 60 + 30, // default 6:30 AM
       focusWindowHours: 14,
     );
+    if (widget.controller.goalPlan?.armed == true) {
+      await widget.controller.markWelcomeOnboardingComplete();
+    }
 
     // Dismiss any notice from armGoalLock before showing animation
     widget.controller.dismissBanner();
@@ -547,13 +552,37 @@ class _WelcomeOnboardingViewState extends State<_WelcomeOnboardingView>
           ),
         ),
         const SizedBox(height: 24),
-        _NumberedStep(number: '1', before: 'Pick ', highlight: 'ONE GOAL', after: '.', textPrimary: textPrimary),
+        _NumberedStep(
+          number: '1',
+          before: 'Pick ',
+          highlight: 'ONE GOAL',
+          after: '.',
+          textPrimary: textPrimary,
+        ),
         const SizedBox(height: 14),
-        _NumberedStep(number: '2', before: 'Lock ', highlight: 'YOUR APPS', after: '.', textPrimary: textPrimary),
+        _NumberedStep(
+          number: '2',
+          before: 'Lock ',
+          highlight: 'YOUR APPS',
+          after: '.',
+          textPrimary: textPrimary,
+        ),
         const SizedBox(height: 14),
-        _NumberedStep(number: '3', before: 'Check-in ', highlight: 'EVERYDAY', after: '.', textPrimary: textPrimary),
+        _NumberedStep(
+          number: '3',
+          before: 'Check-in ',
+          highlight: 'EVERYDAY',
+          after: '.',
+          textPrimary: textPrimary,
+        ),
         const SizedBox(height: 14),
-        _NumberedStep(number: '4', before: 'Build ', highlight: '', after: '', textPrimary: textPrimary),
+        _NumberedStep(
+          number: '4',
+          before: 'Build ',
+          highlight: '',
+          after: '',
+          textPrimary: textPrimary,
+        ),
         Center(
           child: Text(
             'UNSTOPPABLE\nMOMENTUM.',
@@ -1409,9 +1438,7 @@ class _PlatformSetupSectionState extends State<_PlatformSetupSection> {
           ),
           const SizedBox(height: 10),
           ElevatedButton(
-            onPressed: widget.controller.isBusy ||
-                    iosUnavailable ||
-                    !authorized
+            onPressed: widget.controller.isBusy || iosUnavailable || !authorized
                 ? null
                 : widget.controller.pickBlockedApps,
             child: Text(appCount > 0 ? 'Edit apps' : 'Choose apps'),
@@ -1445,7 +1472,9 @@ class _PlatformSetupSectionState extends State<_PlatformSetupSection> {
           // Step 2: Usage access (optional)
           _SetupStepRow(
             stepNumber: '2',
-            label: usageOn ? 'Drift detection on' : 'Drift detection (optional)',
+            label: usageOn
+                ? 'Drift detection on'
+                : 'Drift detection (optional)',
             isDone: usageOn,
             dark: dark,
           ),
@@ -1512,8 +1541,8 @@ class _SetupStepRow extends StatelessWidget {
             color: isDone
                 ? _onboardingAccent
                 : (dark
-                    ? Colors.white.withValues(alpha: 0.10)
-                    : Colors.black.withValues(alpha: 0.06)),
+                      ? Colors.white.withValues(alpha: 0.10)
+                      : Colors.black.withValues(alpha: 0.06)),
           ),
           child: Center(
             child: isDone

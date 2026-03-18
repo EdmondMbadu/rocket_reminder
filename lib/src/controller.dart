@@ -49,6 +49,7 @@ class GoalLockController extends ChangeNotifier {
   bool _isBusy = false;
   bool _isDarkMode = false;
   bool _holdOnboarding = false;
+  bool _hasCompletedWelcomeOnboarding = false;
   AuthMode _authMode = AuthMode.signIn;
   AppTab _currentTab = AppTab.today;
   String? _errorMessage;
@@ -66,6 +67,7 @@ class GoalLockController extends ChangeNotifier {
   bool get isBusy => _isBusy;
   bool get isDarkMode => _isDarkMode;
   bool get holdOnboarding => _holdOnboarding;
+  bool get hasCompletedWelcomeOnboarding => _hasCompletedWelcomeOnboarding;
   AuthMode get authMode => _authMode;
   AppTab get currentTab => _currentTab;
   String? get errorMessage => _errorMessage;
@@ -218,6 +220,9 @@ class GoalLockController extends ChangeNotifier {
       _commitments = snapshot.commitments;
       _isDarkMode = snapshot.isDarkMode;
       _deviceControlState = snapshot.deviceControlState;
+      _hasCompletedWelcomeOnboarding =
+          snapshot.hasCompletedWelcomeOnboarding ||
+          snapshot.goalPlan?.armed == true;
       if (reconnectNeeded) {
         _noticeMessage =
             'Local progress restored. Log back into Rocket Goals to resume cloud sync.';
@@ -373,6 +378,9 @@ class GoalLockController extends ChangeNotifier {
       _goalPlan = bundle.importedGoal;
       _commitments = bundle.importedCommitments;
       _remoteCredentials = bundle.credentials;
+      if (_goalPlan?.armed == true) {
+        _hasCompletedWelcomeOnboarding = true;
+      }
       _noticeMessage = bundle.notice;
       await _persist();
     });
@@ -395,9 +403,21 @@ class GoalLockController extends ChangeNotifier {
       _goalPlan = bundle.importedGoal;
       _commitments = bundle.importedCommitments;
       _remoteCredentials = bundle.credentials;
+      if (_goalPlan?.armed == true) {
+        _hasCompletedWelcomeOnboarding = true;
+      }
       _noticeMessage = bundle.notice;
       await _persist();
     });
+  }
+
+  Future<void> markWelcomeOnboardingComplete() async {
+    if (_hasCompletedWelcomeOnboarding) {
+      return;
+    }
+    _hasCompletedWelcomeOnboarding = true;
+    await _persist();
+    notifyListeners();
   }
 
   Future<void> requestPasswordReset(String email) async {
@@ -676,6 +696,8 @@ class GoalLockController extends ChangeNotifier {
   }
 
   Future<void> signOut() async {
+    final hasCompletedWelcome =
+        _hasCompletedWelcomeOnboarding || _goalPlan?.armed == true;
     _ticker?.cancel();
     _remoteCredentials = null;
     _account = null;
@@ -683,13 +705,15 @@ class GoalLockController extends ChangeNotifier {
     _commitments = const [];
     _deviceControlState = const DeviceControlState();
     _availableAndroidApps = const [];
+    _holdOnboarding = false;
+    _hasCompletedWelcomeOnboarding = hasCompletedWelcome;
     _authMode = AuthMode.signIn;
     _currentTab = AppTab.today;
     _errorMessage = null;
     _noticeMessage = null;
     _isReady = true;
     await _platform.clear();
-    await _cache.clear();
+    await _persist();
     _startTicker();
     notifyListeners();
   }
@@ -1031,6 +1055,7 @@ class GoalLockController extends ChangeNotifier {
         commitments: _commitments,
         isDarkMode: _isDarkMode,
         deviceControlState: _deviceControlState,
+        hasCompletedWelcomeOnboarding: _hasCompletedWelcomeOnboarding,
       ).toJson(),
     );
   }
