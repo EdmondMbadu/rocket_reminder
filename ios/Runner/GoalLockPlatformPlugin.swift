@@ -48,24 +48,20 @@ final class GoalLockPlatformPlugin: NSObject, FlutterPlugin {
       buildStatus(result: result)
       return
     #endif
-    if #available(iOS 16.0, *) {
-      Task {
-        do {
-          try await AuthorizationCenter.shared.requestAuthorization(for: .individual)
-          GoalLockShieldController.refreshNow()
-          buildStatus(result: result)
-        } catch {
-          result(
-            FlutterError(
-              code: "authorization_failed",
-              message: error.localizedDescription,
-              details: nil
-            )
+    requestAuthorizationIfNeeded { authResult in
+      switch authResult {
+      case .success:
+        GoalLockShieldController.refreshNow()
+        self.buildStatus(result: result)
+      case .failure(let error):
+        result(
+          FlutterError(
+            code: "authorization_failed",
+            message: self.authorizationErrorMessage(error),
+            details: nil
           )
-        }
+        )
       }
-    } else {
-      buildStatus(result: result)
     }
   }
 
@@ -120,6 +116,48 @@ final class GoalLockPlatformPlugin: NSObject, FlutterPlugin {
       buildStatus(result: result)
       return
     }
+    requestAuthorizationIfNeeded { authResult in
+      switch authResult {
+      case .success:
+        self.presentAuthorizedPicker(result: result)
+      case .failure(let error):
+        result(
+          FlutterError(
+            code: "authorization_failed",
+            message: self.authorizationErrorMessage(error),
+            details: nil
+          )
+        )
+      }
+    }
+  }
+
+  private func requestAuthorizationIfNeeded(
+    completion: @escaping (Result<Void, Error>) -> Void
+  ) {
+    guard #available(iOS 16.0, *) else {
+      completion(.success(()))
+      return
+    }
+    if AuthorizationCenter.shared.authorizationStatus == .approved {
+      completion(.success(()))
+      return
+    }
+    Task {
+      do {
+        try await AuthorizationCenter.shared.requestAuthorization(for: .individual)
+        DispatchQueue.main.async {
+          completion(.success(()))
+        }
+      } catch {
+        DispatchQueue.main.async {
+          completion(.failure(error))
+        }
+      }
+    }
+  }
+
+  private func presentAuthorizedPicker(result: @escaping FlutterResult) {
     guard pickerResult == nil else {
       result(
         FlutterError(
@@ -154,6 +192,18 @@ final class GoalLockPlatformPlugin: NSObject, FlutterPlugin {
       self.finishPicker()
     }
     controller.present(picker, animated: true)
+  }
+
+  private func authorizationErrorMessage(_ error: Error) -> String {
+    let detail = error.localizedDescription.trimmingCharacters(
+      in: .whitespacesAndNewlines
+    )
+    let base =
+      "Goal Lock could not open the Screen Time permission prompt. If this is a local iPhone build, it may not be signed with the Family Controls capability."
+    guard !detail.isEmpty else {
+      return base
+    }
+    return "\(base) \(detail)"
   }
 
   private func finishPicker() {

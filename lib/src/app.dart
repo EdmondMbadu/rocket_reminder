@@ -771,7 +771,6 @@ class _WelcomeOnboardingViewState extends State<_WelcomeOnboardingView>
               'Run a half marathon',
               'Launch my SaaS by June',
               'Write my first novel',
-              'Get to 10% body fat',
             ])
               GestureDetector(
                 onTap: () {
@@ -813,15 +812,46 @@ class _WelcomeOnboardingViewState extends State<_WelcomeOnboardingView>
         TextField(
           controller: _goalCtl,
           maxLength: 120,
-          maxLines: 3,
-          minLines: 2,
+          maxLines: 5,
+          minLines: 4,
           textCapitalization: TextCapitalization.sentences,
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            height: 1.45,
+            color: textPrimary,
+          ),
           decoration: InputDecoration(
-            hintText: 'Your goal...',
+            hintText: 'Write the one goal you are locking in here.',
+            alignLabelWithHint: true,
+            fillColor: dark
+                ? Colors.white.withValues(alpha: 0.08)
+                : Colors.white.withValues(alpha: 0.82),
+            contentPadding: const EdgeInsets.fromLTRB(22, 22, 22, 18),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(28),
+              borderSide: BorderSide(
+                color: dark
+                    ? Colors.white.withValues(alpha: 0.12)
+                    : Colors.black.withValues(alpha: 0.08),
+              ),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(28),
+              borderSide: BorderSide(
+                color: dark
+                    ? Colors.white.withValues(alpha: 0.14)
+                    : Colors.black.withValues(alpha: 0.08),
+              ),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(28),
+              borderSide: const BorderSide(color: _brandRed, width: 1.8),
+            ),
             counterText: '$charCount / 120',
             counterStyle: TextStyle(
               fontSize: 12,
-              fontWeight: FontWeight.w600,
+              fontWeight: FontWeight.w700,
               color: charCount > 100
                   ? _brandRed
                   : (dark ? _brandSmoke : const Color(0xFF8A8480)),
@@ -1438,10 +1468,14 @@ class _PlatformSetupSectionState extends State<_PlatformSetupSection> {
           ),
           const SizedBox(height: 10),
           ElevatedButton(
-            onPressed: widget.controller.isBusy || iosUnavailable || !authorized
+            onPressed: widget.controller.isBusy || iosUnavailable
                 ? null
                 : widget.controller.pickBlockedApps,
-            child: Text(appCount > 0 ? 'Edit apps' : 'Choose apps'),
+            child: Text(
+              authorized
+                  ? (appCount > 0 ? 'Edit apps' : 'Choose apps')
+                  : 'Allow & choose apps',
+            ),
           ),
         ],
       );

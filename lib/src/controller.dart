@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 
 import 'local_cache.dart';
 import 'local_cache_base.dart';
@@ -932,6 +933,14 @@ class GoalLockController extends ChangeNotifier {
       await _mergePlatformStatus(status);
       if (successMessage != null) {
         _noticeMessage = successMessage;
+      }
+    } on PlatformException catch (error) {
+      final message = error.message?.trim();
+      if (message != null && message.isNotEmpty) {
+        _errorMessage = message;
+      } else {
+        _errorMessage =
+            'We could not update device permissions right now. Try again on this device.';
       }
     } catch (_) {
       _errorMessage =
